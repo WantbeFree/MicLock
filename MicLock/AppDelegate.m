@@ -1,0 +1,510 @@
+#import "AppDelegate.h"
+#import "GBLaunchAtLogin.h"
+#import "MLAudioDevice.h"
+#import "MLAudioDeviceService.h"
+#import "MLFallbackSelection.h"
+#import "MLInputSelectionResolver.h"
+#import "MLMenuSelectionPayload.h"
+#import "MLPreferencesStore.h"
+#import "MLStatusMenuBuilder.h"
+
+static NSTimeInterval const kAudioRefreshDebounceInterval = 0.15;
+
+@interface MLAudioRefreshResult : NSObject
+
+@property (nonatomic, copy, readonly) NSArray<MLAudioDevice *> *devices;
+@property (nonatomic, copy, readonly) NSString *preferredInputUID;
+@property (nonatomic, copy, readonly) NSArray<MLFallbackSelection *> *fallbackSelections;
+@property (nonatomic, strong, readonly) MLInputResolution *resolution;
+@property (nonatomic, assign, readonly) AudioDeviceID currentDefaultInputID;
+@property (nonatomic, assign, readonly) AudioDeviceID forcedInputID;
+@property (nonatomic, assign, readonly) BOOL didApplyResolvedInput;
+
++ (instancetype)resultWithDevices:(NSArray<MLAudioDevice *> *)devices
+                 preferredInputUID:(NSString *)preferredInputUID
+                fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
+                         resolution:(MLInputResolution *)resolution
+              currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+                       forcedInputID:(AudioDeviceID)forcedInputID
+              didApplyResolvedInput:(BOOL)didApplyResolvedInput;
+
+- (instancetype)initWithDevices:(NSArray<MLAudioDevice *> *)devices
+               preferredInputUID:(NSString *)preferredInputUID
+              fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
+                       resolution:(MLInputResolution *)resolution
+            currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+                     forcedInputID:(AudioDeviceID)forcedInputID
+            didApplyResolvedInput:(BOOL)didApplyResolvedInput NS_DESIGNATED_INITIALIZER;
+
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)new NS_UNAVAILABLE;
+
+@end
+
+@implementation MLAudioRefreshResult
+
++ (instancetype)resultWithDevices:(NSArray<MLAudioDevice *> *)devices
+                 preferredInputUID:(NSString *)preferredInputUID
+                fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
+                         resolution:(MLInputResolution *)resolution
+              currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+                       forcedInputID:(AudioDeviceID)forcedInputID
+              didApplyResolvedInput:(BOOL)didApplyResolvedInput
+{
+    return [[self alloc] initWithDevices:devices
+                       preferredInputUID:preferredInputUID
+                      fallbackSelections:fallbackSelections
+                               resolution:resolution
+                    currentDefaultInputID:currentDefaultInputID
+                             forcedInputID:forcedInputID
+                    didApplyResolvedInput:didApplyResolvedInput];
+}
+
+- (instancetype)initWithDevices:(NSArray<MLAudioDevice *> *)devices
+               preferredInputUID:(NSString *)preferredInputUID
+              fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
+                       resolution:(MLInputResolution *)resolution
+            currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+                     forcedInputID:(AudioDeviceID)forcedInputID
+            didApplyResolvedInput:(BOOL)didApplyResolvedInput
+{
+    self = [super init];
+    if (self)
+    {
+        _devices = [devices copy] ?: @[];
+        _preferredInputUID = [preferredInputUID copy] ?: @"";
+        _fallbackSelections = [fallbackSelections copy] ?: @[];
+        _resolution = resolution;
+        _currentDefaultInputID = currentDefaultInputID;
+        _forcedInputID = forcedInputID;
+        _didApplyResolvedInput = didApplyResolvedInput;
+    }
+
+    return self;
+}
+
+@end
+
+@interface AppDelegate () <MLStatusMenuActionHandling>
+
+@property (weak) IBOutlet NSWindow *window;
+@property (nonatomic, assign) BOOL paused;
+@property (nonatomic, assign) BOOL refreshInProgress;
+@property (nonatomic, assign) NSUInteger refreshRequestGeneration;
+@property (nonatomic, assign) AudioDeviceID forcedInputID;
+@property (nonatomic, strong) dispatch_queue_t refreshQueue;
+@property (nonatomic, copy) NSString *preferredInputUID;
+@property (nonatomic, copy) NSArray<MLFallbackSelection *> *fallbackSelections;
+@property (nonatomic, strong) MLPreferencesStore *preferencesStore;
+@property (nonatomic, strong) MLAudioDeviceService *audioDeviceService;
+@property (nonatomic, strong) NSMenu *menu;
+@property (nonatomic, strong) NSStatusItem *statusItem;
+@property (nonatomic, strong) NSMenuItem *startupItem;
+
+@end
+
+@implementation AppDelegate
+
+- (void)applicationDidFinishLaunching:(NSNotification *)aNotification
+{
+    (void)aNotification;
+
+    self.preferencesStore = [[MLPreferencesStore alloc] initWithUserDefaults:[NSUserDefaults standardUserDefaults]];
+    self.paused = [self.preferencesStore paused];
+    self.preferredInputUID = [self.preferencesStore preferredInputUID];
+    self.fallbackSelections = [self.preferencesStore fallbackSelections];
+    self.forcedInputID = kAudioDeviceUnknown;
+    self.refreshQueue = dispatch_queue_create("com.miclock.audio-refresh", DISPATCH_QUEUE_SERIAL);
+    self.audioDeviceService = [[MLAudioDeviceService alloc] init];
+
+    [self setupStatusItem];
+
+    __weak typeof(self) weakSelf = self;
+    [self.audioDeviceService startMonitoringWithChangeHandler:^
+    {
+        [weakSelf scheduleAudioStateRefresh];
+    }];
+
+    [self refreshAudioStateAndMenu];
+}
+
+- (void)applicationWillTerminate:(NSNotification *)notification
+{
+    (void)notification;
+    [self.audioDeviceService stopMonitoring];
+}
+
+- (void)setupStatusItem
+{
+    NSImage *image = nil;
+    NSURL *vectorIconURL = [[NSBundle mainBundle] URLForResource:@"microphone" withExtension:@"svg"];
+    if (vectorIconURL != nil)
+    {
+        image = [[NSImage alloc] initWithContentsOfURL:vectorIconURL];
+        [image setSize:NSMakeSize(18.0, 18.0)];
+    }
+
+    if (image != nil)
+    {
+        [image setTemplate:YES];
+    }
+    else
+    {
+        NSImageSymbolConfiguration *symbolConfiguration = [NSImageSymbolConfiguration configurationWithPointSize:13.0
+                                                                                                          weight:NSFontWeightSemibold
+                                                                                                           scale:NSImageSymbolScaleMedium];
+        image = [NSImage imageWithSystemSymbolName:@"mic.fill"
+                           accessibilityDescription:@"Microphone"];
+        if (image != nil)
+        {
+            image = [image imageWithSymbolConfiguration:symbolConfiguration];
+            [image setTemplate:YES];
+        }
+    }
+
+    self.statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
+    self.statusItem.button.toolTip = @"MicLock";
+    self.statusItem.button.image = image;
+    self.statusItem.button.imageScaling = NSImageScaleProportionallyDown;
+}
+
+- (void)scheduleAudioStateRefresh
+{
+    self.refreshRequestGeneration += 1;
+
+    NSUInteger generation = self.refreshRequestGeneration;
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kAudioRefreshDebounceInterval * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^
+    {
+        AppDelegate *strongSelf = weakSelf;
+        if (strongSelf == nil || generation != strongSelf.refreshRequestGeneration)
+        {
+            return;
+        }
+
+        [strongSelf refreshAudioStateAndMenu];
+    });
+}
+
+- (void)refreshAudioStateAndMenu
+{
+    if (self.refreshInProgress)
+    {
+        [self scheduleAudioStateRefresh];
+        return;
+    }
+
+    self.refreshInProgress = YES;
+
+    NSUInteger generation = self.refreshRequestGeneration;
+    BOOL paused = self.paused;
+    NSString *preferredInputUID = [self.preferredInputUID copy] ?: @"";
+    NSArray<MLFallbackSelection *> *fallbackSelections = [[self.preferencesStore normalizedFallbackSelectionsFromValue:self.fallbackSelections] copy];
+    MLAudioDeviceService *audioDeviceService = self.audioDeviceService;
+
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(self.refreshQueue, ^
+    {
+        AppDelegate *workerSelf = weakSelf;
+        if (workerSelf == nil)
+        {
+            return;
+        }
+
+        NSArray<MLAudioDevice *> *devices = [audioDeviceService availableInputDevices];
+        AudioDeviceID currentDefaultInputID = [audioDeviceService currentDefaultInputDevice];
+
+        NSString *resolvedPreferredInputUID = [workerSelf preferredInputUIDByEnsuringSelection:preferredInputUID
+                                                                                   withDevices:devices
+                                                                                currentDefault:currentDefaultInputID];
+        NSArray<MLFallbackSelection *> *resolvedFallbackSelections = [workerSelf fallbackSelectionsBySynchronizingSelections:fallbackSelections
+                                                                                                                 withDevices:devices];
+
+        MLInputResolution *resolution = [MLInputSelectionResolver resolutionFromDevices:devices
+                                                                        currentDefault:currentDefaultInputID
+                                                                     preferredInputUID:resolvedPreferredInputUID
+                                                                    fallbackSelections:resolvedFallbackSelections];
+
+        MLAudioDevice *resolvedDevice = resolution.device;
+        AudioDeviceID forcedInputID = resolvedDevice != nil ? resolvedDevice.deviceID : kAudioDeviceUnknown;
+
+        BOOL didApplyResolvedInput = NO;
+        if (!paused &&
+            forcedInputID != kAudioDeviceUnknown &&
+            currentDefaultInputID != forcedInputID)
+        {
+            didApplyResolvedInput = [audioDeviceService setDefaultInputDevice:forcedInputID];
+            if (didApplyResolvedInput)
+            {
+                currentDefaultInputID = forcedInputID;
+            }
+        }
+
+        MLAudioRefreshResult *result = [MLAudioRefreshResult resultWithDevices:devices
+                                                             preferredInputUID:resolvedPreferredInputUID
+                                                            fallbackSelections:resolvedFallbackSelections
+                                                                     resolution:resolution
+                                                          currentDefaultInputID:currentDefaultInputID
+                                                                   forcedInputID:forcedInputID
+                                                          didApplyResolvedInput:didApplyResolvedInput];
+
+        dispatch_async(dispatch_get_main_queue(), ^
+        {
+            AppDelegate *strongSelf = weakSelf;
+            if (strongSelf == nil)
+            {
+                return;
+            }
+
+            if (generation != strongSelf.refreshRequestGeneration)
+            {
+                strongSelf.refreshInProgress = NO;
+                [strongSelf scheduleAudioStateRefresh];
+                return;
+            }
+
+            [strongSelf applyAudioRefreshResult:result];
+        });
+    });
+}
+
+- (void)primaryDeviceSelected:(NSMenuItem *)item
+{
+    MLAudioDevice *device = item.representedObject;
+    if (![device isKindOfClass:[MLAudioDevice class]] || device.uid.length == 0)
+    {
+        return;
+    }
+
+    self.preferredInputUID = device.uid;
+    [self.preferencesStore setPreferredInputUID:device.uid];
+
+    NSMutableArray<MLFallbackSelection *> *fallbacks = [[self.preferencesStore normalizedFallbackSelectionsFromValue:self.fallbackSelections] mutableCopy];
+    for (NSUInteger slot = 0; slot < fallbacks.count; slot++)
+    {
+        if ([fallbacks[slot].uid isEqualToString:device.uid])
+        {
+            fallbacks[slot] = [MLFallbackSelection emptySelection];
+        }
+    }
+    [self updateFallbackSelections:fallbacks];
+
+    [self refreshAudioStateAndMenu];
+}
+
+- (void)fallbackDeviceSelected:(NSMenuItem *)item
+{
+    MLMenuSelectionPayload *payload = item.representedObject;
+    if (![payload isKindOfClass:[MLMenuSelectionPayload class]] ||
+        ![payload.device isKindOfClass:[MLAudioDevice class]])
+    {
+        return;
+    }
+
+    [self setFallbackUID:payload.device.uid displayName:payload.device.displayName forSlot:payload.slot];
+    [self refreshAudioStateAndMenu];
+}
+
+- (void)clearFallbackDevice:(NSMenuItem *)item
+{
+    MLMenuSelectionPayload *payload = item.representedObject;
+    if (![payload isKindOfClass:[MLMenuSelectionPayload class]])
+    {
+        return;
+    }
+
+    [self setFallbackUID:nil displayName:nil forSlot:payload.slot];
+    [self refreshAudioStateAndMenu];
+}
+
+- (void)manualPause:(NSMenuItem *)item
+{
+    (void)item;
+
+    self.paused = !self.paused;
+    [self.preferencesStore setPaused:self.paused];
+    [self refreshAudioStateAndMenu];
+}
+
+- (void)terminate
+{
+    [NSApp terminate:nil];
+}
+
+- (void)toggleStartupItem
+{
+    GBLaunchAtLoginStatus status = [GBLaunchAtLogin status];
+
+    if (status == GBLaunchAtLoginStatusEnabled)
+    {
+        [GBLaunchAtLogin removeAppFromLoginItems];
+    }
+    else
+    {
+        [GBLaunchAtLogin addAppAsLoginItem];
+    }
+
+    [self updateStartupItemState];
+
+    if ([GBLaunchAtLogin status] == GBLaunchAtLoginStatusRequiresApproval)
+    {
+        [GBLaunchAtLogin openLoginItemsSettings];
+    }
+}
+
+- (void)updateStartupItemState
+{
+    if (self.startupItem == nil)
+    {
+        return;
+    }
+
+    GBLaunchAtLoginStatus status = [GBLaunchAtLogin status];
+    self.startupItem.title = @"Open at login";
+    self.startupItem.toolTip = nil;
+
+    switch (status)
+    {
+        case GBLaunchAtLoginStatusEnabled:
+            self.startupItem.state = NSControlStateValueOn;
+            break;
+
+        case GBLaunchAtLoginStatusRequiresApproval:
+            self.startupItem.state = NSControlStateValueMixed;
+            self.startupItem.title = @"Open at login (approve in Settings)";
+            self.startupItem.toolTip = @"Approve the app in System Settings > General > Login Items.";
+            break;
+
+        case GBLaunchAtLoginStatusDisabled:
+        default:
+            self.startupItem.state = NSControlStateValueOff;
+            break;
+    }
+}
+
+- (void)menuWillOpen:(NSMenu *)menu
+{
+    (void)menu;
+    [self updateStartupItemState];
+}
+
+- (NSString *)preferredInputUIDByEnsuringSelection:(NSString *)preferredInputUID
+                                       withDevices:(NSArray<MLAudioDevice *> *)devices
+                                    currentDefault:(AudioDeviceID)currentDefaultInputID
+{
+    if (preferredInputUID.length > 0)
+    {
+        return preferredInputUID;
+    }
+
+    MLAudioDevice *initialDevice = [MLInputSelectionResolver initialPrimaryDeviceFromDevices:devices
+                                                                             currentDefault:currentDefaultInputID];
+    if (initialDevice.uid.length > 0)
+    {
+        return initialDevice.uid;
+    }
+
+    return @"";
+}
+
+- (void)setFallbackUID:(NSString *)uid
+           displayName:(NSString *)displayName
+               forSlot:(NSUInteger)slot
+{
+    if (slot >= MLFallbackSelectionSlotCount)
+    {
+        return;
+    }
+
+    NSMutableArray<MLFallbackSelection *> *selections = [[self.preferencesStore normalizedFallbackSelectionsFromValue:self.fallbackSelections] mutableCopy];
+
+    if (uid.length > 0)
+    {
+        for (NSUInteger index = 0; index < selections.count; index++)
+        {
+            if (index != slot && [selections[index].uid isEqualToString:uid])
+            {
+                selections[index] = [MLFallbackSelection emptySelection];
+            }
+        }
+        selections[slot] = [MLFallbackSelection selectionWithUID:uid displayName:displayName];
+    }
+    else
+    {
+        selections[slot] = [MLFallbackSelection emptySelection];
+    }
+
+    [self updateFallbackSelections:selections];
+}
+
+- (NSArray<MLFallbackSelection *> *)fallbackSelectionsBySynchronizingSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
+                                                                   withDevices:(NSArray<MLAudioDevice *> *)devices
+{
+    NSMutableArray<MLFallbackSelection *> *selections = [fallbackSelections mutableCopy] ?: [NSMutableArray array];
+
+    for (NSUInteger slot = 0; slot < selections.count; slot++)
+    {
+        MLFallbackSelection *selection = selections[slot];
+        if (selection.uid.length == 0)
+        {
+            continue;
+        }
+
+        MLAudioDevice *device = [MLInputSelectionResolver deviceWithUID:selection.uid inDevices:devices];
+        if (device == nil)
+        {
+            continue;
+        }
+
+        if (![selection.displayName isEqualToString:device.displayName ?: @""])
+        {
+            selections[slot] = [MLFallbackSelection selectionWithUID:selection.uid displayName:device.displayName];
+        }
+    }
+
+    return [selections copy];
+}
+
+- (void)updateFallbackSelections:(NSArray<MLFallbackSelection *> *)selections
+{
+    self.fallbackSelections = [self.preferencesStore normalizedFallbackSelectionsFromValue:selections];
+    [self.preferencesStore saveFallbackSelections:self.fallbackSelections];
+}
+
+- (void)applyAudioRefreshResult:(MLAudioRefreshResult *)result
+{
+    if (![(self.preferredInputUID ?: @"") isEqualToString:result.preferredInputUID])
+    {
+        self.preferredInputUID = result.preferredInputUID;
+        [self.preferencesStore setPreferredInputUID:result.preferredInputUID];
+    }
+
+    if (![self.fallbackSelections isEqualToArray:result.fallbackSelections])
+    {
+        [self updateFallbackSelections:result.fallbackSelections];
+    }
+
+    MLAudioDevice *resolvedDevice = result.resolution.device;
+    self.forcedInputID = result.forcedInputID;
+
+    MLStatusMenuBuildResult *menuResult = [MLStatusMenuBuilder menuWithDevices:result.devices
+                                                         currentDefaultInputID:result.currentDefaultInputID
+                                                                  activeDevice:resolvedDevice
+                                                             activeSourceTitle:result.resolution.activeSourceTitle
+                                                             preferredInputUID:self.preferredInputUID
+                                                            fallbackSelections:self.fallbackSelections
+                                                                        paused:self.paused
+                                                       preferredInputAvailable:result.resolution.preferredInputAvailable
+                                                         didApplyResolvedInput:result.didApplyResolvedInput
+                                                                        target:self
+                                                                      delegate:self];
+    self.menu = menuResult.menu;
+    self.startupItem = menuResult.startupItem;
+    [self updateStartupItemState];
+    [self.statusItem setMenu:self.menu];
+
+    self.refreshInProgress = NO;
+}
+
+@end

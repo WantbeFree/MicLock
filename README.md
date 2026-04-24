@@ -1,0 +1,27 @@
+# MicLock for macOS
+
+Menu bar utility that keeps macOS on a better microphone when Bluetooth headphones try to become the default input device and reduce output quality.
+
+## What it does
+
+- Monitors macOS input-device changes in real time.
+- Keeps a selected primary microphone active when available.
+- Falls back through three user-selected backup microphones in order.
+- Falls back automatically to a built-in or other non-wireless input if the saved devices are unavailable.
+- Prevents Bluetooth headset microphones from taking priority unless you explicitly choose them.
+
+## Current behavior
+
+- Runs as a menu bar app with no Dock icon.
+- Remembers the primary input and all fallback selections between launches.
+- Shows disconnected fallback devices as unavailable while keeping their last known names visible in the menu.
+- Supports Apple Silicon Macs and runs natively without Rosetta.
+
+## Requirements
+
+- macOS 13.0 or newer
+- Apple Silicon (`arm64`)
+
+## Status
+
+The app is currently maintained as a native Objective-C/AppKit utility. `scripts/build_release.sh` creates signed and notarized Developer ID releases by default when signing credentials are configured. Use `--unsigned` only for local test packages.
