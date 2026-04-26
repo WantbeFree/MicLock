@@ -7,6 +7,8 @@
 @protocol MLStatusMenuActionHandling <NSObject>
 
 - (void)manualPause:(NSMenuItem *)item;
+- (void)refreshAudioDevices:(NSMenuItem *)item;
+- (void)reviveAudio:(NSMenuItem *)item;
 - (void)primaryDeviceSelected:(NSMenuItem *)item;
 - (void)fallbackDeviceSelected:(NSMenuItem *)item;
 - (void)clearFallbackDevice:(NSMenuItem *)item;

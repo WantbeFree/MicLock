@@ -9,12 +9,15 @@ Menu bar utility that keeps macOS on a better microphone when Bluetooth headphon
 - Falls back through three user-selected backup microphones in order.
 - Falls back automatically to a built-in or other non-wireless input if the saved devices are unavailable.
 - Prevents Bluetooth headset microphones from taking priority unless you explicitly choose them.
+- Offers manual device refresh and CoreAudio restart for USB/audio devices that disappear after sleep.
 
 ## Current behavior
 
 - Runs as a menu bar app with no Dock icon.
 - Remembers the primary input and all fallback selections between launches.
 - Shows disconnected fallback devices as unavailable while keeping their last known names visible in the menu.
+- Refreshes again after macOS wakes from sleep, because USB audio interfaces can enumerate late.
+- Notifies you when the selected primary microphone disappears from CoreAudio.
 - Supports Apple Silicon Macs and runs natively without Rosetta.
 
 ## Requirements

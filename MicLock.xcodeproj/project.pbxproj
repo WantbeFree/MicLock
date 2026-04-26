@@ -13,6 +13,7 @@
 			3333F8AF219874D600816A9F /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 3333F8AE219874D600816A9F /* main.m */; };
 			335B96782199C07000F6D77B /* GBLaunchAtLogin.m in Sources */ = {isa = PBXBuildFile; fileRef = 335B96752199C07000F6D77B /* GBLaunchAtLogin.m */; };
 			4D5897FD2E2A4508007E14EF /* ServiceManagement.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D5897FC2E2A4508007E14EF /* ServiceManagement.framework */; };
+			4D5897FF2E2A4508007E14EF /* UserNotifications.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4D5897FE2E2A4508007E14EF /* UserNotifications.framework */; };
 			E61C10002EED000100A0B001 /* microphone.svg in Resources */ = {isa = PBXBuildFile; fileRef = E61C0FFF2EED000100A0B001 /* microphone.svg */; };
 			E61C10202EED000100A0B001 /* MLAudioDevice.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10112EED000100A0B001 /* MLAudioDevice.m */; };
 			E61C10212EED000100A0B001 /* MLFallbackSelection.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10132EED000100A0B001 /* MLFallbackSelection.m */; };
@@ -21,6 +22,7 @@
 			E61C10242EED000100A0B001 /* MLAudioDeviceService.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10192EED000100A0B001 /* MLAudioDeviceService.m */; };
 			E61C10322EED000100A0B001 /* MLStatusMenuBuilder.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10312EED000100A0B001 /* MLStatusMenuBuilder.m */; };
 			E61C10422EED000100A0B001 /* MLMenuSelectionPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10412EED000100A0B001 /* MLMenuSelectionPayload.m */; };
+			E61C10522EED000100A0B001 /* MLCoreAudioReviver.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10512EED000100A0B001 /* MLCoreAudioReviver.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,6 +41,7 @@
 			335B967A2199C25A00F6D77B /* LICENSE */ = {isa = PBXFileReference; lastKnownFileType = text; path = LICENSE; sourceTree = SOURCE_ROOT; };
 			335B967B2199C25A00F6D77B /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = SOURCE_ROOT; };
 			4D5897FC2E2A4508007E14EF /* ServiceManagement.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServiceManagement.framework; path = System/Library/Frameworks/ServiceManagement.framework; sourceTree = SDKROOT; };
+			4D5897FE2E2A4508007E14EF /* UserNotifications.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UserNotifications.framework; path = System/Library/Frameworks/UserNotifications.framework; sourceTree = SDKROOT; };
 			E61C0FFF2EED000100A0B001 /* microphone.svg */ = {isa = PBXFileReference; lastKnownFileType = image.svg; path = microphone.svg; sourceTree = "<group>"; };
 			E61C10102EED000100A0B001 /* MLAudioDevice.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MLAudioDevice.h; sourceTree = "<group>"; };
 			E61C10112EED000100A0B001 /* MLAudioDevice.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MLAudioDevice.m; sourceTree = "<group>"; };
@@ -54,6 +57,8 @@
 			E61C10312EED000100A0B001 /* MLStatusMenuBuilder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MLStatusMenuBuilder.m; sourceTree = "<group>"; };
 			E61C10402EED000100A0B001 /* MLMenuSelectionPayload.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MLMenuSelectionPayload.h; sourceTree = "<group>"; };
 			E61C10412EED000100A0B001 /* MLMenuSelectionPayload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MLMenuSelectionPayload.m; sourceTree = "<group>"; };
+			E61C10502EED000100A0B001 /* MLCoreAudioReviver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MLCoreAudioReviver.h; sourceTree = "<group>"; };
+			E61C10512EED000100A0B001 /* MLCoreAudioReviver.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MLCoreAudioReviver.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -62,6 +67,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				4D5897FD2E2A4508007E14EF /* ServiceManagement.framework in Frameworks */,
+				4D5897FF2E2A4508007E14EF /* UserNotifications.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -95,6 +101,8 @@
 					E61C10112EED000100A0B001 /* MLAudioDevice.m */,
 					E61C10182EED000100A0B001 /* MLAudioDeviceService.h */,
 					E61C10192EED000100A0B001 /* MLAudioDeviceService.m */,
+					E61C10502EED000100A0B001 /* MLCoreAudioReviver.h */,
+					E61C10512EED000100A0B001 /* MLCoreAudioReviver.m */,
 					E61C10122EED000100A0B001 /* MLFallbackSelection.h */,
 					E61C10132EED000100A0B001 /* MLFallbackSelection.m */,
 					E61C10142EED000100A0B001 /* MLInputSelectionResolver.h */,
@@ -119,6 +127,7 @@
 			isa = PBXGroup;
 			children = (
 				4D5897FC2E2A4508007E14EF /* ServiceManagement.framework */,
+				4D5897FE2E2A4508007E14EF /* UserNotifications.framework */,
 				335B96722199C07000F6D77B /* GBLaunchAtLogin */,
 				3333F8BB2198771700816A9F /* CoreAudio.framework */,
 			);
@@ -215,6 +224,7 @@
 				3333F8AF219874D600816A9F /* main.m in Sources */,
 				E61C10202EED000100A0B001 /* MLAudioDevice.m in Sources */,
 				E61C10242EED000100A0B001 /* MLAudioDeviceService.m in Sources */,
+				E61C10522EED000100A0B001 /* MLCoreAudioReviver.m in Sources */,
 				E61C10212EED000100A0B001 /* MLFallbackSelection.m in Sources */,
 				E61C10222EED000100A0B001 /* MLInputSelectionResolver.m in Sources */,
 				E61C10422EED000100A0B001 /* MLMenuSelectionPayload.m in Sources */,

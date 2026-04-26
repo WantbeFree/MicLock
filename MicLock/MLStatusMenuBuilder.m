@@ -97,6 +97,20 @@
 
     [menu addItem:[NSMenuItem separatorItem]];
 
+    NSMenuItem *refreshItem = [menu addItemWithTitle:@"Refresh Devices"
+                                              action:@selector(refreshAudioDevices:)
+                                       keyEquivalent:@""];
+    refreshItem.target = target;
+    refreshItem.toolTip = @"Rescan CoreAudio input devices without changing your selections.";
+
+    NSMenuItem *reviveItem = [menu addItemWithTitle:@"Revive Audio..."
+                                             action:@selector(reviveAudio:)
+                                      keyEquivalent:@""];
+    reviveItem.target = target;
+    reviveItem.toolTip = @"Restart CoreAudio with administrator approval, then rescan devices.";
+
+    [menu addItem:[NSMenuItem separatorItem]];
+
     NSMenuItem *selectionHeader = [menu addItemWithTitle:@"Input Selection"
                                                   action:nil
                                            keyEquivalent:@""];

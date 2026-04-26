@@ -2,13 +2,18 @@
 #import "GBLaunchAtLogin.h"
 #import "MLAudioDevice.h"
 #import "MLAudioDeviceService.h"
+#import "MLCoreAudioReviver.h"
 #import "MLFallbackSelection.h"
 #import "MLInputSelectionResolver.h"
 #import "MLMenuSelectionPayload.h"
 #import "MLPreferencesStore.h"
 #import "MLStatusMenuBuilder.h"
+#import <UserNotifications/UserNotifications.h>
 
 static NSTimeInterval const kAudioRefreshDebounceInterval = 0.15;
+static NSTimeInterval const kWakeRefreshInitialDelay = 1.0;
+static NSTimeInterval const kWakeRefreshFollowUpDelay = 5.0;
+static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
 
 @interface MLAudioRefreshResult : NSObject
 
@@ -97,9 +102,15 @@ static NSTimeInterval const kAudioRefreshDebounceInterval = 0.15;
 @property (nonatomic, copy) NSArray<MLFallbackSelection *> *fallbackSelections;
 @property (nonatomic, strong) MLPreferencesStore *preferencesStore;
 @property (nonatomic, strong) MLAudioDeviceService *audioDeviceService;
+@property (nonatomic, strong) MLCoreAudioReviver *coreAudioReviver;
 @property (nonatomic, strong) NSMenu *menu;
 @property (nonatomic, strong) NSStatusItem *statusItem;
 @property (nonatomic, strong) NSMenuItem *startupItem;
+@property (nonatomic, copy) NSString *lastPreferredInputDisplayName;
+@property (nonatomic, strong) NSDate *lastUnavailableNotificationDate;
+@property (nonatomic, assign) BOOL hasObservedPreferredInputAvailability;
+@property (nonatomic, assign) BOOL lastPreferredInputAvailable;
+@property (nonatomic, assign) BOOL reviveInProgress;
 
 @end
 
@@ -116,6 +127,7 @@ static NSTimeInterval const kAudioRefreshDebounceInterval = 0.15;
     self.forcedInputID = kAudioDeviceUnknown;
     self.refreshQueue = dispatch_queue_create("com.miclock.audio-refresh", DISPATCH_QUEUE_SERIAL);
     self.audioDeviceService = [[MLAudioDeviceService alloc] init];
+    self.coreAudioReviver = [[MLCoreAudioReviver alloc] init];
 
     [self setupStatusItem];
 
@@ -125,12 +137,18 @@ static NSTimeInterval const kAudioRefreshDebounceInterval = 0.15;
         [weakSelf scheduleAudioStateRefresh];
     }];
 
+    [[[NSWorkspace sharedWorkspace] notificationCenter] addObserver:self
+                                                           selector:@selector(systemDidWake:)
+                                                               name:NSWorkspaceDidWakeNotification
+                                                             object:nil];
+
     [self refreshAudioStateAndMenu];
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification
 {
     (void)notification;
+    [[[NSWorkspace sharedWorkspace] notificationCenter] removeObserver:self];
     [self.audioDeviceService stopMonitoring];
 }
 
@@ -487,6 +505,7 @@ static NSTimeInterval const kAudioRefreshDebounceInterval = 0.15;
 
     MLAudioDevice *resolvedDevice = result.resolution.device;
     self.forcedInputID = result.forcedInputID;
+    [self updatePreferredInputAvailabilityFromResult:result];
 
     MLStatusMenuBuildResult *menuResult = [MLStatusMenuBuilder menuWithDevices:result.devices
                                                          currentDefaultInputID:result.currentDefaultInputID
@@ -505,6 +524,170 @@ static NSTimeInterval const kAudioRefreshDebounceInterval = 0.15;
     [self.statusItem setMenu:self.menu];
 
     self.refreshInProgress = NO;
+}
+
+- (void)refreshAudioDevices:(NSMenuItem *)item
+{
+    (void)item;
+    [self scheduleAudioStateRefresh];
+}
+
+- (void)reviveAudio:(NSMenuItem *)item
+{
+    (void)item;
+
+    if (self.reviveInProgress)
+    {
+        return;
+    }
+
+    self.reviveInProgress = YES;
+    [self postNotificationWithTitle:@"MicLock"
+                                body:@"Restarting CoreAudio. macOS may ask for administrator approval."];
+
+    __weak typeof(self) weakSelf = self;
+    [self.coreAudioReviver restartCoreAudioWithCompletion:^(BOOL success, NSString *message)
+    {
+        AppDelegate *strongSelf = weakSelf;
+        if (strongSelf == nil)
+        {
+            return;
+        }
+
+        strongSelf.reviveInProgress = NO;
+        if (success)
+        {
+            [strongSelf postNotificationWithTitle:@"MicLock"
+                                             body:@"CoreAudio restarted. Refreshing input devices now."];
+            [strongSelf scheduleWakeRecoveryRefreshes];
+            return;
+        }
+
+        if ([message localizedCaseInsensitiveContainsString:@"User canceled"])
+        {
+            return;
+        }
+
+        [strongSelf showReviveFailureAlertWithMessage:message];
+    }];
+}
+
+- (void)systemDidWake:(NSNotification *)notification
+{
+    (void)notification;
+    [self scheduleWakeRecoveryRefreshes];
+}
+
+- (void)scheduleWakeRecoveryRefreshes
+{
+    [self scheduleAudioStateRefreshAfterDelay:kWakeRefreshInitialDelay];
+    [self scheduleAudioStateRefreshAfterDelay:kWakeRefreshFollowUpDelay];
+}
+
+- (void)scheduleAudioStateRefreshAfterDelay:(NSTimeInterval)delay
+{
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^
+    {
+        [weakSelf scheduleAudioStateRefresh];
+    });
+}
+
+- (void)updatePreferredInputAvailabilityFromResult:(MLAudioRefreshResult *)result
+{
+    NSString *preferredInputUID = result.preferredInputUID ?: @"";
+    BOOL hasPreferredInput = preferredInputUID.length > 0;
+    BOOL preferredInputAvailable = !hasPreferredInput || result.resolution.preferredInputAvailable;
+
+    if (hasPreferredInput && preferredInputAvailable)
+    {
+        MLAudioDevice *preferredDevice = [MLInputSelectionResolver deviceWithUID:preferredInputUID
+                                                                       inDevices:result.devices];
+        if (preferredDevice.displayName.length > 0)
+        {
+            self.lastPreferredInputDisplayName = preferredDevice.displayName;
+        }
+    }
+
+    BOOL becameUnavailable = (hasPreferredInput &&
+                              self.hasObservedPreferredInputAvailability &&
+                              self.lastPreferredInputAvailable &&
+                              !preferredInputAvailable);
+
+    self.hasObservedPreferredInputAvailability = YES;
+    self.lastPreferredInputAvailable = preferredInputAvailable;
+
+    if (becameUnavailable && [self shouldPostUnavailableNotification])
+    {
+        NSString *deviceName = self.lastPreferredInputDisplayName.length > 0 ? self.lastPreferredInputDisplayName : @"Selected microphone";
+        NSString *body = [NSString stringWithFormat:@"%@ disappeared from CoreAudio. Try Revive Audio; if it is missing from USB too, power-cycle the dock/KVM path.", deviceName];
+        [self postNotificationWithTitle:@"MicLock lost the primary input" body:body];
+    }
+}
+
+- (BOOL)shouldPostUnavailableNotification
+{
+    NSDate *now = [NSDate date];
+    if (self.lastUnavailableNotificationDate != nil &&
+        [now timeIntervalSinceDate:self.lastUnavailableNotificationDate] < kUnavailableNotificationMinimumInterval)
+    {
+        return NO;
+    }
+
+    self.lastUnavailableNotificationDate = now;
+    return YES;
+}
+
+- (void)postNotificationWithTitle:(NSString *)title body:(NSString *)body
+{
+    UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+    [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *settings)
+    {
+        void (^deliverNotification)(void) = ^
+        {
+            UNMutableNotificationContent *content = [[UNMutableNotificationContent alloc] init];
+            content.title = title ?: @"MicLock";
+            content.body = body ?: @"";
+
+            NSString *identifier = [NSString stringWithFormat:@"com.miclock.notification.%@", [NSUUID UUID].UUIDString];
+            UNNotificationRequest *request = [UNNotificationRequest requestWithIdentifier:identifier
+                                                                                  content:content
+                                                                                  trigger:nil];
+            [center addNotificationRequest:request withCompletionHandler:nil];
+        };
+
+        if (settings.authorizationStatus == UNAuthorizationStatusAuthorized ||
+            settings.authorizationStatus == UNAuthorizationStatusProvisional)
+        {
+            deliverNotification();
+            return;
+        }
+
+        if (settings.authorizationStatus != UNAuthorizationStatusNotDetermined)
+        {
+            return;
+        }
+
+        [center requestAuthorizationWithOptions:UNAuthorizationOptionAlert
+                              completionHandler:^(BOOL granted, NSError *error)
+        {
+            (void)error;
+            if (granted)
+            {
+                deliverNotification();
+            }
+        }];
+    }];
+}
+
+- (void)showReviveFailureAlertWithMessage:(NSString *)message
+{
+    NSAlert *alert = [[NSAlert alloc] init];
+    alert.messageText = @"CoreAudio restart failed";
+    alert.informativeText = message.length > 0 ? message : @"macOS did not allow MicLock to restart CoreAudio.";
+    [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
 }
 
 @end
