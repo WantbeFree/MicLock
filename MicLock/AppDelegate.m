@@ -113,6 +113,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
 @property (nonatomic, assign) BOOL hasObservedPreferredInputAvailability;
 @property (nonatomic, assign) BOOL lastPreferredInputAvailable;
 @property (nonatomic, assign) BOOL reviveInProgress;
+@property (nonatomic, assign) BOOL reopenMenuAfterRefresh;
 
 @end
 
@@ -576,11 +577,17 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
     [self.statusItem setMenu:self.menu];
 
     self.refreshInProgress = NO;
+    if (self.reopenMenuAfterRefresh)
+    {
+        self.reopenMenuAfterRefresh = NO;
+        [self reopenStatusMenuSoon];
+    }
 }
 
 - (void)refreshAudioDevices:(NSMenuItem *)item
 {
     (void)item;
+    self.reopenMenuAfterRefresh = YES;
     [self scheduleAudioStateRefresh];
 }
 
@@ -611,6 +618,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         {
             [strongSelf postNotificationWithTitle:@"MicLock"
                                              body:@"CoreAudio restarted. Refreshing input devices now."];
+            strongSelf.reopenMenuAfterRefresh = YES;
             [strongSelf scheduleWakeRecoveryRefreshes];
             return;
         }
@@ -634,6 +642,22 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
 {
     [self scheduleAudioStateRefreshAfterDelay:kWakeRefreshInitialDelay];
     [self scheduleAudioStateRefreshAfterDelay:kWakeRefreshFollowUpDelay];
+}
+
+- (void)reopenStatusMenuSoon
+{
+    __weak typeof(self) weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.15 * NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^
+    {
+        AppDelegate *strongSelf = weakSelf;
+        if (strongSelf == nil || strongSelf.statusItem.button == nil || strongSelf.menu == nil)
+        {
+            return;
+        }
+
+        [strongSelf.statusItem.button performClick:nil];
+    });
 }
 
 - (void)scheduleAudioStateRefreshAfterDelay:(NSTimeInterval)delay

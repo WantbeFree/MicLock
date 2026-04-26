@@ -41,6 +41,11 @@
                                       target:(id<MLStatusMenuActionHandling>)target
                                     delegate:(id<NSMenuDelegate>)delegate
 {
+    (void)activeDevice;
+    (void)activeSourceTitle;
+    (void)preferredInputAvailable;
+    (void)didApplyResolvedInput;
+
     NSDictionary *bundleInfo = [[NSBundle mainBundle] infoDictionary];
     NSString *shortVersion = bundleInfo[@"CFBundleShortVersionString"] ?: @"";
     NSString *buildVersion = bundleInfo[@"CFBundleVersion"] ?: @"";
@@ -59,42 +64,6 @@
                                      keyEquivalent:@""];
     pauseItem.target = target;
     pauseItem.state = paused ? NSControlStateValueOn : NSControlStateValueOff;
-
-    [menu addItem:[NSMenuItem separatorItem]];
-
-    NSString *activeDeviceTitle = activeDevice != nil ? activeDevice.displayName : @"No input device available";
-    NSMenuItem *currentInputItem = [menu addItemWithTitle:[NSString stringWithFormat:@"Current input: %@", activeDeviceTitle]
-                                                   action:nil
-                                            keyEquivalent:@""];
-    currentInputItem.enabled = NO;
-
-    NSMenuItem *sourceItem = [menu addItemWithTitle:[NSString stringWithFormat:@"Source: %@", activeSourceTitle ?: @"Unavailable"]
-                                             action:nil
-                                      keyEquivalent:@""];
-    sourceItem.enabled = NO;
-
-    if (paused)
-    {
-        NSMenuItem *pausedItem = [menu addItemWithTitle:@"Monitoring is paused"
-                                                 action:nil
-                                          keyEquivalent:@""];
-        pausedItem.enabled = NO;
-    }
-    else if (didApplyResolvedInput)
-    {
-        NSMenuItem *appliedItem = [menu addItemWithTitle:@"Applied selected input device"
-                                                  action:nil
-                                           keyEquivalent:@""];
-        appliedItem.enabled = NO;
-    }
-
-    if (preferredInputUID.length > 0 && !preferredInputAvailable)
-    {
-        NSMenuItem *fallbackItem = [menu addItemWithTitle:@"Primary input unavailable, fallback chain is active"
-                                                   action:nil
-                                            keyEquivalent:@""];
-        fallbackItem.enabled = NO;
-    }
 
     [menu addItem:[NSMenuItem separatorItem]];
 
