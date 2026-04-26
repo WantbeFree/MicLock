@@ -33,6 +33,7 @@
                                 activeDevice:(MLAudioDevice *)activeDevice
                            activeSourceTitle:(NSString *)activeSourceTitle
                            preferredInputUID:(NSString *)preferredInputUID
+                    preferredInputDisplayName:(NSString *)preferredInputDisplayName
                           fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
                                       paused:(BOOL)paused
                      preferredInputAvailable:(BOOL)preferredInputAvailable
@@ -94,6 +95,16 @@
                                             keyEquivalent:@""];
         fallbackItem.enabled = NO;
     }
+
+    [menu addItem:[NSMenuItem separatorItem]];
+
+    [self addSavedInputsSectionToMenu:menu
+                               devices:devices
+                  currentDefaultInputID:currentDefaultInputID
+                     preferredInputUID:preferredInputUID
+              preferredInputDisplayName:preferredInputDisplayName
+                    fallbackSelections:fallbackSelections
+                                target:target];
 
     [menu addItem:[NSMenuItem separatorItem]];
 
@@ -168,6 +179,93 @@
     quitItem.target = target;
 
     return [MLStatusMenuBuildResult resultWithMenu:menu startupItem:startupItem];
+}
+
++ (void)addSavedInputsSectionToMenu:(NSMenu *)menu
+                             devices:(NSArray<MLAudioDevice *> *)devices
+                currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+                   preferredInputUID:(NSString *)preferredInputUID
+            preferredInputDisplayName:(NSString *)preferredInputDisplayName
+                  fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
+                              target:(id<MLStatusMenuActionHandling>)target
+{
+    NSMenuItem *savedHeader = [menu addItemWithTitle:@"Saved Inputs"
+                                             action:nil
+                                      keyEquivalent:@""];
+    savedHeader.enabled = NO;
+
+    NSUInteger savedInputCount = 0;
+    if (preferredInputUID.length > 0)
+    {
+        [self addSavedInputItemToMenu:menu
+                            roleTitle:@"Primary"
+                                  uid:preferredInputUID
+                   storedDisplayName:preferredInputDisplayName
+                              devices:devices
+                 currentDefaultInputID:currentDefaultInputID
+                                target:target];
+        savedInputCount += 1;
+    }
+
+    for (NSUInteger slot = 0; slot < fallbackSelections.count; slot++)
+    {
+        MLFallbackSelection *fallbackSelection = fallbackSelections[slot];
+        if (fallbackSelection.uid.length == 0)
+        {
+            continue;
+        }
+
+        NSString *roleTitle = [NSString stringWithFormat:@"Fallback %lu", (unsigned long)(slot + 1)];
+        [self addSavedInputItemToMenu:menu
+                            roleTitle:roleTitle
+                                  uid:fallbackSelection.uid
+                   storedDisplayName:fallbackSelection.displayName
+                              devices:devices
+                 currentDefaultInputID:currentDefaultInputID
+                                target:target];
+        savedInputCount += 1;
+    }
+
+    if (savedInputCount == 0)
+    {
+        NSMenuItem *emptyItem = [menu addItemWithTitle:@"No saved inputs yet"
+                                                action:nil
+                                         keyEquivalent:@""];
+        emptyItem.enabled = NO;
+    }
+}
+
++ (void)addSavedInputItemToMenu:(NSMenu *)menu
+                      roleTitle:(NSString *)roleTitle
+                            uid:(NSString *)uid
+             storedDisplayName:(NSString *)storedDisplayName
+                        devices:(NSArray<MLAudioDevice *> *)devices
+           currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+                          target:(id<MLStatusMenuActionHandling>)target
+{
+    MLAudioDevice *device = [MLInputSelectionResolver deviceWithUID:uid inDevices:devices];
+    BOOL available = (device != nil);
+    NSString *displayName = available ? device.displayName : storedDisplayName;
+    if (displayName.length == 0)
+    {
+        displayName = @"Unavailable";
+    }
+
+    NSString *availabilitySuffix = (!available && storedDisplayName.length > 0) ? @" - Unavailable" : @"";
+    NSString *title = [NSString stringWithFormat:@"%@: %@%@", roleTitle, displayName, availabilitySuffix];
+    NSMenuItem *item = [menu addItemWithTitle:title
+                                       action:(available ? @selector(savedInputSelected:) : nil)
+                                keyEquivalent:@""];
+    item.enabled = available;
+    item.target = available ? target : nil;
+    item.representedObject = device;
+
+    if (available && device.deviceID == currentDefaultInputID)
+    {
+        item.state = NSControlStateValueOn;
+    }
+
+    item.toolTip = available ? @"Click to use this saved input now." : @"This saved input is not currently visible to CoreAudio.";
 }
 
 + (NSMenu *)selectionMenuForDevices:(NSArray<MLAudioDevice *> *)devices

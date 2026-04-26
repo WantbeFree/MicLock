@@ -16,6 +16,9 @@ FOUNDATION_EXPORT NSUInteger const MLFallbackSelectionSlotCount;
 - (NSString *)preferredInputUID;
 - (void)setPreferredInputUID:(NSString *)uid;
 
+- (NSString *)preferredInputDisplayName;
+- (void)setPreferredInputDisplayName:(NSString *)displayName;
+
 - (NSArray<MLFallbackSelection *> *)fallbackSelections;
 - (void)saveFallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections;
 - (NSArray<MLFallbackSelection *> *)normalizedFallbackSelectionsFromValue:(id)value;

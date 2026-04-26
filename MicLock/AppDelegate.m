@@ -99,6 +99,8 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
 @property (nonatomic, assign) AudioDeviceID forcedInputID;
 @property (nonatomic, strong) dispatch_queue_t refreshQueue;
 @property (nonatomic, copy) NSString *preferredInputUID;
+@property (nonatomic, copy) NSString *preferredInputDisplayName;
+@property (nonatomic, copy) NSString *manualOverrideInputUID;
 @property (nonatomic, copy) NSArray<MLFallbackSelection *> *fallbackSelections;
 @property (nonatomic, strong) MLPreferencesStore *preferencesStore;
 @property (nonatomic, strong) MLAudioDeviceService *audioDeviceService;
@@ -123,6 +125,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
     self.preferencesStore = [[MLPreferencesStore alloc] initWithUserDefaults:[NSUserDefaults standardUserDefaults]];
     self.paused = [self.preferencesStore paused];
     self.preferredInputUID = [self.preferencesStore preferredInputUID];
+    self.preferredInputDisplayName = [self.preferencesStore preferredInputDisplayName];
     self.fallbackSelections = [self.preferencesStore fallbackSelections];
     self.forcedInputID = kAudioDeviceUnknown;
     self.refreshQueue = dispatch_queue_create("com.miclock.audio-refresh", DISPATCH_QUEUE_SERIAL);
@@ -218,6 +221,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
     NSUInteger generation = self.refreshRequestGeneration;
     BOOL paused = self.paused;
     NSString *preferredInputUID = [self.preferredInputUID copy] ?: @"";
+    NSString *manualOverrideInputUID = [self.manualOverrideInputUID copy] ?: @"";
     NSArray<MLFallbackSelection *> *fallbackSelections = [[self.preferencesStore normalizedFallbackSelectionsFromValue:self.fallbackSelections] copy];
     MLAudioDeviceService *audioDeviceService = self.audioDeviceService;
 
@@ -239,10 +243,25 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         NSArray<MLFallbackSelection *> *resolvedFallbackSelections = [workerSelf fallbackSelectionsBySynchronizingSelections:fallbackSelections
                                                                                                                  withDevices:devices];
 
-        MLInputResolution *resolution = [MLInputSelectionResolver resolutionFromDevices:devices
-                                                                        currentDefault:currentDefaultInputID
-                                                                     preferredInputUID:resolvedPreferredInputUID
-                                                                    fallbackSelections:resolvedFallbackSelections];
+        MLAudioDevice *manualOverrideDevice = [MLInputSelectionResolver deviceWithUID:manualOverrideInputUID
+                                                                            inDevices:devices];
+        MLInputResolution *resolution = nil;
+        if (manualOverrideDevice != nil)
+        {
+            BOOL preferredInputAvailable = (resolvedPreferredInputUID.length == 0 ||
+                                            [MLInputSelectionResolver deviceWithUID:resolvedPreferredInputUID
+                                                                         inDevices:devices] != nil);
+            resolution = [MLInputResolution resolutionWithDevice:manualOverrideDevice
+                                               activeSourceTitle:@"Manual selection"
+                                         preferredInputAvailable:preferredInputAvailable];
+        }
+        else
+        {
+            resolution = [MLInputSelectionResolver resolutionFromDevices:devices
+                                                          currentDefault:currentDefaultInputID
+                                                       preferredInputUID:resolvedPreferredInputUID
+                                                      fallbackSelections:resolvedFallbackSelections];
+        }
 
         MLAudioDevice *resolvedDevice = resolution.device;
         AudioDeviceID forcedInputID = resolvedDevice != nil ? resolvedDevice.deviceID : kAudioDeviceUnknown;
@@ -295,8 +314,11 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         return;
     }
 
+    self.manualOverrideInputUID = nil;
     self.preferredInputUID = device.uid;
+    self.preferredInputDisplayName = device.displayName;
     [self.preferencesStore setPreferredInputUID:device.uid];
+    [self.preferencesStore setPreferredInputDisplayName:device.displayName];
 
     NSMutableArray<MLFallbackSelection *> *fallbacks = [[self.preferencesStore normalizedFallbackSelectionsFromValue:self.fallbackSelections] mutableCopy];
     for (NSUInteger slot = 0; slot < fallbacks.count; slot++)
@@ -320,6 +342,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         return;
     }
 
+    self.manualOverrideInputUID = nil;
     [self setFallbackUID:payload.device.uid displayName:payload.device.displayName forSlot:payload.slot];
     [self refreshAudioStateAndMenu];
 }
@@ -332,7 +355,20 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         return;
     }
 
+    self.manualOverrideInputUID = nil;
     [self setFallbackUID:nil displayName:nil forSlot:payload.slot];
+    [self refreshAudioStateAndMenu];
+}
+
+- (void)savedInputSelected:(NSMenuItem *)item
+{
+    MLAudioDevice *device = item.representedObject;
+    if (![device isKindOfClass:[MLAudioDevice class]] || device.uid.length == 0)
+    {
+        return;
+    }
+
+    self.manualOverrideInputUID = device.uid;
     [self refreshAudioStateAndMenu];
 }
 
@@ -503,6 +539,21 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         [self updateFallbackSelections:result.fallbackSelections];
     }
 
+    MLAudioDevice *preferredDevice = [MLInputSelectionResolver deviceWithUID:self.preferredInputUID
+                                                                   inDevices:result.devices];
+    if (preferredDevice.displayName.length > 0 &&
+        ![self.preferredInputDisplayName isEqualToString:preferredDevice.displayName])
+    {
+        self.preferredInputDisplayName = preferredDevice.displayName;
+        [self.preferencesStore setPreferredInputDisplayName:preferredDevice.displayName];
+    }
+
+    if (self.manualOverrideInputUID.length > 0 &&
+        [MLInputSelectionResolver deviceWithUID:self.manualOverrideInputUID inDevices:result.devices] == nil)
+    {
+        self.manualOverrideInputUID = nil;
+    }
+
     MLAudioDevice *resolvedDevice = result.resolution.device;
     self.forcedInputID = result.forcedInputID;
     [self updatePreferredInputAvailabilityFromResult:result];
@@ -512,6 +563,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
                                                                   activeDevice:resolvedDevice
                                                              activeSourceTitle:result.resolution.activeSourceTitle
                                                              preferredInputUID:self.preferredInputUID
+                                                   preferredInputDisplayName:self.preferredInputDisplayName
                                                             fallbackSelections:self.fallbackSelections
                                                                         paused:self.paused
                                                        preferredInputAvailable:result.resolution.preferredInputAvailable

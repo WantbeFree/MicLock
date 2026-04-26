@@ -9,6 +9,7 @@
 - (void)manualPause:(NSMenuItem *)item;
 - (void)refreshAudioDevices:(NSMenuItem *)item;
 - (void)reviveAudio:(NSMenuItem *)item;
+- (void)savedInputSelected:(NSMenuItem *)item;
 - (void)primaryDeviceSelected:(NSMenuItem *)item;
 - (void)fallbackDeviceSelected:(NSMenuItem *)item;
 - (void)clearFallbackDevice:(NSMenuItem *)item;
@@ -37,6 +38,7 @@
                                 activeDevice:(MLAudioDevice *)activeDevice
                            activeSourceTitle:(NSString *)activeSourceTitle
                            preferredInputUID:(NSString *)preferredInputUID
+                    preferredInputDisplayName:(NSString *)preferredInputDisplayName
                           fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
                                       paused:(BOOL)paused
                      preferredInputAvailable:(BOOL)preferredInputAvailable

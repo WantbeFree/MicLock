@@ -5,6 +5,7 @@ NSUInteger const MLFallbackSelectionSlotCount = 3;
 
 static NSString * const MLPausedDefaultsKey = @"paused";
 static NSString * const MLPreferredInputUIDDefaultsKey = @"preferredInputUID";
+static NSString * const MLPreferredInputDisplayNameDefaultsKey = @"preferredInputDisplayName";
 static NSString * const MLFallbackInputUIDsDefaultsKey = @"fallbackInputUIDs";
 static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
 
@@ -51,6 +52,23 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
     else
     {
         [self.defaults removeObjectForKey:MLPreferredInputUIDDefaultsKey];
+    }
+}
+
+- (NSString *)preferredInputDisplayName
+{
+    return [self.defaults stringForKey:MLPreferredInputDisplayNameDefaultsKey];
+}
+
+- (void)setPreferredInputDisplayName:(NSString *)displayName
+{
+    if (displayName.length > 0)
+    {
+        [self.defaults setObject:displayName forKey:MLPreferredInputDisplayNameDefaultsKey];
+    }
+    else
+    {
+        [self.defaults removeObjectForKey:MLPreferredInputDisplayNameDefaultsKey];
     }
 }
 
@@ -104,6 +122,7 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
 
     [self copyLegacyObjectForKey:MLPausedDefaultsKey fromDefaults:legacyDefaults];
     [self copyLegacyObjectForKey:MLPreferredInputUIDDefaultsKey fromDefaults:legacyDefaults];
+    [self copyLegacyObjectForKey:MLPreferredInputDisplayNameDefaultsKey fromDefaults:legacyDefaults];
     [self copyLegacyObjectForKey:MLFallbackInputUIDsDefaultsKey fromDefaults:legacyDefaults];
 }
 

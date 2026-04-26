@@ -15,6 +15,7 @@ Menu bar utility that keeps macOS on a better microphone when Bluetooth headphon
 
 - Runs as a menu bar app with no Dock icon.
 - Remembers the primary input and all fallback selections between launches.
+- Shows saved primary/fallback inputs near the top of the menu with a checkmark on the active one.
 - Shows disconnected fallback devices as unavailable while keeping their last known names visible in the menu.
 - Refreshes again after macOS wakes from sleep, because USB audio interfaces can enumerate late.
 - Notifies you when the selected primary microphone disappears from CoreAudio.
