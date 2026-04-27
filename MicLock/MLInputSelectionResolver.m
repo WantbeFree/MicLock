@@ -5,23 +5,19 @@
 @implementation MLInputResolution
 
 + (instancetype)resolutionWithDevice:(MLAudioDevice *)device
-                    activeSourceTitle:(NSString *)activeSourceTitle
               preferredInputAvailable:(BOOL)preferredInputAvailable
 {
     return [[self alloc] initWithDevice:device
-                      activeSourceTitle:activeSourceTitle
                 preferredInputAvailable:preferredInputAvailable];
 }
 
 - (instancetype)initWithDevice:(MLAudioDevice *)device
-             activeSourceTitle:(NSString *)activeSourceTitle
        preferredInputAvailable:(BOOL)preferredInputAvailable
 {
     self = [super init];
     if (self != nil)
     {
         _device = device;
-        _activeSourceTitle = [activeSourceTitle copy] ?: @"Unavailable";
         _preferredInputAvailable = preferredInputAvailable;
     }
     return self;
@@ -59,7 +55,6 @@
     if (primaryDevice != nil)
     {
         return [MLInputResolution resolutionWithDevice:primaryDevice
-                                     activeSourceTitle:@"Primary"
                                preferredInputAvailable:YES];
     }
 
@@ -70,9 +65,7 @@
         MLAudioDevice *fallbackDevice = [self deviceWithUID:selection.uid inDevices:devices];
         if (fallbackDevice != nil)
         {
-            NSString *sourceTitle = [NSString stringWithFormat:@"Fallback %lu", (unsigned long)(slot + 1)];
             return [MLInputResolution resolutionWithDevice:fallbackDevice
-                                         activeSourceTitle:sourceTitle
                                    preferredInputAvailable:preferredInputAvailable];
         }
     }
@@ -81,7 +74,6 @@
     if (automaticDevice != nil)
     {
         return [MLInputResolution resolutionWithDevice:automaticDevice
-                                     activeSourceTitle:@"Automatic built-in fallback"
                                preferredInputAvailable:preferredInputAvailable];
     }
 
@@ -89,7 +81,6 @@
     if (automaticDevice != nil)
     {
         return [MLInputResolution resolutionWithDevice:automaticDevice
-                                     activeSourceTitle:@"Automatic wired fallback"
                                preferredInputAvailable:preferredInputAvailable];
     }
 
@@ -97,14 +88,11 @@
     if (automaticDevice != nil)
     {
         return [MLInputResolution resolutionWithDevice:automaticDevice
-                                     activeSourceTitle:@"Current default"
                                preferredInputAvailable:preferredInputAvailable];
     }
 
     automaticDevice = devices.firstObject;
-    NSString *sourceTitle = automaticDevice != nil ? @"First available input" : @"No input devices available";
     return [MLInputResolution resolutionWithDevice:automaticDevice
-                                 activeSourceTitle:sourceTitle
                            preferredInputAvailable:preferredInputAvailable];
 }
 

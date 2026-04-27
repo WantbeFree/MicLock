@@ -4,6 +4,9 @@ import Foundation
 struct AppIconRenderer {
     let sourceURL: URL
     let outputDirectoryURL: URL
+    var shouldRenderFullSourceImage: Bool {
+        sourceURL.pathExtension.lowercased() != "svg"
+    }
 
     func render() throws {
         guard let glyphImage = NSImage(contentsOf: sourceURL) else {
@@ -28,12 +31,12 @@ struct AppIconRenderer {
         ]
 
         for (filename, pixelSize) in outputs {
-            let image = renderIcon(glyphImage: glyphImage, pixelSize: pixelSize)
+            let image = renderIcon(sourceImage: glyphImage, pixelSize: pixelSize)
             try writePNG(image: image, to: outputDirectoryURL.appendingPathComponent(filename))
         }
     }
 
-    private func renderIcon(glyphImage: NSImage, pixelSize: Int) -> NSImage {
+    private func renderIcon(sourceImage: NSImage, pixelSize: Int) -> NSImage {
         let size = NSSize(width: pixelSize, height: pixelSize)
         let image = NSImage(size: size)
 
@@ -42,6 +45,11 @@ struct AppIconRenderer {
 
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
+
+        if shouldRenderFullSourceImage {
+            drawFullSourceImage(sourceImage, in: NSRect(origin: .zero, size: size), pixelSize: pixelSize)
+            return image
+        }
 
         let bounds = NSRect(origin: .zero, size: size)
         let radius = CGFloat(pixelSize) * 0.2237
@@ -63,9 +71,36 @@ struct AppIconRenderer {
 
         let glyphInset = CGFloat(pixelSize) * 0.205
         let glyphRect = bounds.insetBy(dx: glyphInset, dy: glyphInset)
-        drawTemplateImage(glyphImage, in: glyphRect, color: NSColor.white.withAlphaComponent(0.96))
+        drawTemplateImage(sourceImage, in: glyphRect, color: NSColor.white.withAlphaComponent(0.96))
 
         return image
+    }
+
+    private func drawFullSourceImage(_ image: NSImage, in bounds: NSRect, pixelSize: Int) {
+        guard let context = NSGraphicsContext.current?.cgContext else {
+            return
+        }
+
+        NSGraphicsContext.current?.imageInterpolation = .high
+
+        context.saveGState()
+        let radius = CGFloat(pixelSize) * 0.2237
+        NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).addClip()
+
+        let sourceSize = image.size
+        let sourceLength = min(sourceSize.width, sourceSize.height)
+        let cropInset = sourceLength * 0.075
+        let sourceRect = NSRect(x: cropInset,
+                                y: cropInset,
+                                width: sourceSize.width - cropInset * 2.0,
+                                height: sourceSize.height - cropInset * 2.0)
+        image.draw(in: bounds,
+                   from: sourceRect,
+                   operation: .sourceOver,
+                   fraction: 1.0,
+                   respectFlipped: true,
+                   hints: [.interpolation: NSImageInterpolation.high])
+        context.restoreGState()
     }
 
     private func drawTemplateImage(_ image: NSImage, in rect: NSRect, color: NSColor) {

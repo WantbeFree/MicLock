@@ -2,13 +2,13 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_SVG="${1:-"$ROOT_DIR/MicLock/microphone.svg"}"
+SOURCE_ASSET="${1:-"$ROOT_DIR/MicLock/AppIconSource.png"}"
 APPICONSET_DIR="$ROOT_DIR/MicLock/Assets.xcassets/AppIcon.appiconset"
 MODULE_CACHE_DIR="$ROOT_DIR/build/SwiftModuleCache"
 
 mkdir -p "$MODULE_CACHE_DIR"
 find "$APPICONSET_DIR" -maxdepth 1 -type f -name '*.png' -delete
-/usr/bin/swift -module-cache-path "$MODULE_CACHE_DIR" "$ROOT_DIR/scripts/generate_app_icon.swift" "$SOURCE_SVG" "$APPICONSET_DIR"
+/usr/bin/swift -module-cache-path "$MODULE_CACHE_DIR" "$ROOT_DIR/scripts/generate_app_icon.swift" "$SOURCE_ASSET" "$APPICONSET_DIR"
 
 cat > "$APPICONSET_DIR/Contents.json" <<'JSON'
 {

@@ -7,15 +7,12 @@
 @interface MLInputResolution : NSObject
 
 @property (nonatomic, strong, readonly) MLAudioDevice *device;
-@property (nonatomic, copy, readonly) NSString *activeSourceTitle;
 @property (nonatomic, assign, readonly) BOOL preferredInputAvailable;
 
 + (instancetype)resolutionWithDevice:(MLAudioDevice *)device
-                    activeSourceTitle:(NSString *)activeSourceTitle
               preferredInputAvailable:(BOOL)preferredInputAvailable;
 
 - (instancetype)initWithDevice:(MLAudioDevice *)device
-             activeSourceTitle:(NSString *)activeSourceTitle
        preferredInputAvailable:(BOOL)preferredInputAvailable NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;

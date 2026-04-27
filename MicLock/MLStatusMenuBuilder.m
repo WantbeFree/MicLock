@@ -30,22 +30,13 @@
 
 + (MLStatusMenuBuildResult *)menuWithDevices:(NSArray<MLAudioDevice *> *)devices
                        currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
-                                activeDevice:(MLAudioDevice *)activeDevice
-                           activeSourceTitle:(NSString *)activeSourceTitle
                            preferredInputUID:(NSString *)preferredInputUID
                     preferredInputDisplayName:(NSString *)preferredInputDisplayName
                           fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
                                       paused:(BOOL)paused
-                     preferredInputAvailable:(BOOL)preferredInputAvailable
-                       didApplyResolvedInput:(BOOL)didApplyResolvedInput
                                       target:(id<MLStatusMenuActionHandling>)target
                                     delegate:(id<NSMenuDelegate>)delegate
 {
-    (void)activeDevice;
-    (void)activeSourceTitle;
-    (void)preferredInputAvailable;
-    (void)didApplyResolvedInput;
-
     NSDictionary *bundleInfo = [[NSBundle mainBundle] infoDictionary];
     NSString *shortVersion = bundleInfo[@"CFBundleShortVersionString"] ?: @"";
     NSString *buildVersion = bundleInfo[@"CFBundleVersion"] ?: @"";
