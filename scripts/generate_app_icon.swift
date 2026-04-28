@@ -31,24 +31,43 @@ struct AppIconRenderer {
         ]
 
         for (filename, pixelSize) in outputs {
-            let image = renderIcon(sourceImage: glyphImage, pixelSize: pixelSize)
-            try writePNG(image: image, to: outputDirectoryURL.appendingPathComponent(filename))
+            let bitmap = try renderIcon(sourceImage: glyphImage, pixelSize: pixelSize)
+            try writePNG(bitmap: bitmap, to: outputDirectoryURL.appendingPathComponent(filename))
         }
     }
 
-    private func renderIcon(sourceImage: NSImage, pixelSize: Int) -> NSImage {
+    private func renderIcon(sourceImage: NSImage, pixelSize: Int) throws -> NSBitmapImageRep {
         let size = NSSize(width: pixelSize, height: pixelSize)
-        let image = NSImage(size: size)
+        guard let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil,
+                                            pixelsWide: pixelSize,
+                                            pixelsHigh: pixelSize,
+                                            bitsPerSample: 8,
+                                            samplesPerPixel: 4,
+                                            hasAlpha: true,
+                                            isPlanar: false,
+                                            colorSpaceName: .deviceRGB,
+                                            bytesPerRow: 0,
+                                            bitsPerPixel: 0),
+              let graphicsContext = NSGraphicsContext(bitmapImageRep: bitmap) else {
+            throw NSError(domain: "MicLockIcon", code: 3, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to create bitmap context for \(pixelSize)x\(pixelSize)"
+            ])
+        }
 
-        image.lockFocus()
-        defer { image.unlockFocus() }
+        bitmap.size = size
+
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphicsContext
+        defer { NSGraphicsContext.restoreGraphicsState() }
+
+        graphicsContext.imageInterpolation = .high
 
         NSColor.clear.setFill()
         NSRect(origin: .zero, size: size).fill()
 
         if shouldRenderFullSourceImage {
             drawFullSourceImage(sourceImage, in: NSRect(origin: .zero, size: size), pixelSize: pixelSize)
-            return image
+            return bitmap
         }
 
         let bounds = NSRect(origin: .zero, size: size)
@@ -73,7 +92,7 @@ struct AppIconRenderer {
         let glyphRect = bounds.insetBy(dx: glyphInset, dy: glyphInset)
         drawTemplateImage(sourceImage, in: glyphRect, color: NSColor.white.withAlphaComponent(0.96))
 
-        return image
+        return bitmap
     }
 
     private func drawFullSourceImage(_ image: NSImage, in bounds: NSRect, pixelSize: Int) {
@@ -117,10 +136,8 @@ struct AppIconRenderer {
         context.restoreGState()
     }
 
-    private func writePNG(image: NSImage, to url: URL) throws {
-        guard let tiffData = image.tiffRepresentation,
-              let bitmap = NSBitmapImageRep(data: tiffData),
-              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+    private func writePNG(bitmap: NSBitmapImageRep, to url: URL) throws {
+        guard let pngData = bitmap.representation(using: .png, properties: [:]) else {
             throw NSError(domain: "MicLockIcon", code: 2, userInfo: [
                 NSLocalizedDescriptionKey: "Unable to encode PNG at \(url.path)"
             ])

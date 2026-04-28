@@ -183,6 +183,7 @@ fi
 
 rm -rf "$PACKAGE_APP" "$PACKAGE_ZIP"
 cp -R "$APP_PATH" "$PACKAGE_APP"
+/usr/bin/xattr -cr "$PACKAGE_APP"
 
 if [[ "$UNSIGNED" -eq 0 ]]; then
   /usr/bin/codesign \
