@@ -1,6 +1,16 @@
 # MicLock for macOS
 
+<p align="center">
+  <img src="MicLock/AppIconSource.png" width="128" alt="MicLock app icon">
+</p>
+
 Menu bar utility that keeps macOS on a better microphone when Bluetooth headphones try to become the default input device and reduce output quality.
+
+## Releases
+
+- Latest: [MicLock 1.6.3](https://github.com/WantbeFree/MicLock/releases/tag/v1.6.3)
+- Build: macOS 13.0+, Apple Silicon (`arm64`)
+- Package: unsigned local test build; Developer ID signing/notarization required for public distribution.
 
 ## What it does
 
