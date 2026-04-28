@@ -8,9 +8,9 @@ Menu bar utility that keeps macOS on a better microphone when Bluetooth headphon
 
 ## Releases
 
-- Latest: [MicLock 1.6.4](https://github.com/WantbeFree/MicLock/releases/tag/v1.6.4)
+- Latest: [MicLock 1.6.5](https://github.com/WantbeFree/MicLock/releases/tag/v1.6.5)
 - Build: macOS 13.0+, Apple Silicon (`arm64`)
-- Package: Developer ID signed; notarization required for public distribution without Gatekeeper warnings.
+- Package: Developer ID signed and notarized for Gatekeeper-friendly distribution.
 
 ## What it does
 
