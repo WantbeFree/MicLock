@@ -17,6 +17,12 @@ NSString * const MLFallbackSelectionNameKey = @"displayName";
 
 + (instancetype)selectionFromStoredValue:(id)value
 {
+    if ([value isKindOfClass:[MLFallbackSelection class]])
+    {
+        MLFallbackSelection *selection = (MLFallbackSelection *)value;
+        return [self selectionWithUID:selection.uid displayName:selection.displayName];
+    }
+
     if ([value isKindOfClass:[NSDictionary class]])
     {
         NSDictionary *dictionary = (NSDictionary *)value;

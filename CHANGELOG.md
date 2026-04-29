@@ -2,6 +2,12 @@
 
 All notable changes to MicLock are documented here.
 
+## 1.6.7 - 2026-04-29
+
+- Fixed fallback selection normalization so menu selections persist instead of reverting to Disabled.
+- Verified fallback action with a local CoreAudio smoke test: save, menu rebuild, and submenu checkmark.
+- Developer ID signed and Apple notarized release.
+
 ## 1.6.6 - 2026-04-29
 
 - Fixed fallback slot selections being overwritten by stale CoreAudio refresh snapshots.
