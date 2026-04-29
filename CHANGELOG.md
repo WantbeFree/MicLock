@@ -2,6 +2,12 @@
 
 All notable changes to MicLock are documented here.
 
+## 1.6.6 - 2026-04-29
+
+- Fixed fallback slot selections being overwritten by stale CoreAudio refresh snapshots.
+- Flushes Primary, Fallback, and Pause preferences immediately after changes.
+- Developer ID signed and Apple notarized release.
+
 ## 1.6.5 - 2026-04-28
 
 - Developer ID signed and Apple notarized release.
@@ -20,4 +26,3 @@ All notable changes to MicLock are documented here.
 - Improved saved input menu section.
 - Added Primary plus three fallback microphone slots.
 - Added safer CoreAudio refresh/revive workflows.
-

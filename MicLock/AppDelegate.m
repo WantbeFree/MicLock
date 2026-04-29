@@ -193,6 +193,11 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
     });
 }
 
+- (void)invalidatePendingAudioRefreshResults
+{
+    self.refreshRequestGeneration += 1;
+}
+
 - (void)refreshAudioStateAndMenu
 {
     if (self.refreshInProgress)
@@ -296,6 +301,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         return;
     }
 
+    [self invalidatePendingAudioRefreshResults];
     self.manualOverrideInputUID = nil;
     self.preferredInputUID = device.uid;
     self.preferredInputDisplayName = device.displayName;
@@ -324,6 +330,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         return;
     }
 
+    [self invalidatePendingAudioRefreshResults];
     self.manualOverrideInputUID = nil;
     [self setFallbackUID:payload.device.uid displayName:payload.device.displayName forSlot:payload.slot];
     [self refreshAudioStateAndMenu];
@@ -337,6 +344,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
         return;
     }
 
+    [self invalidatePendingAudioRefreshResults];
     self.manualOverrideInputUID = nil;
     [self setFallbackUID:nil displayName:nil forSlot:payload.slot];
     [self refreshAudioStateAndMenu];

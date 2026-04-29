@@ -13,6 +13,8 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
 
 @property (nonatomic, strong) NSUserDefaults *defaults;
 
+- (void)flushDefaults;
+
 @end
 
 @implementation MLPreferencesStore
@@ -36,6 +38,7 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
 - (void)setPaused:(BOOL)paused
 {
     [self.defaults setBool:paused forKey:MLPausedDefaultsKey];
+    [self flushDefaults];
 }
 
 - (NSString *)preferredInputUID
@@ -53,6 +56,7 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
     {
         [self.defaults removeObjectForKey:MLPreferredInputUIDDefaultsKey];
     }
+    [self flushDefaults];
 }
 
 - (NSString *)preferredInputDisplayName
@@ -70,6 +74,7 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
     {
         [self.defaults removeObjectForKey:MLPreferredInputDisplayNameDefaultsKey];
     }
+    [self flushDefaults];
 }
 
 - (NSArray<MLFallbackSelection *> *)fallbackSelections
@@ -86,6 +91,7 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
         [storedSelections addObject:[selection dictionaryRepresentation]];
     }
     [self.defaults setObject:storedSelections forKey:MLFallbackInputUIDsDefaultsKey];
+    [self flushDefaults];
 }
 
 - (NSArray<MLFallbackSelection *> *)normalizedFallbackSelectionsFromValue:(id)value
@@ -137,7 +143,13 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
     if (legacyValue != nil)
     {
         [self.defaults setObject:legacyValue forKey:key];
+        [self flushDefaults];
     }
+}
+
+- (void)flushDefaults
+{
+    [self.defaults synchronize];
 }
 
 @end

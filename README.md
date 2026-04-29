@@ -26,7 +26,7 @@ MicLock is a tiny native AppKit menu bar app that keeps macOS from switching you
 
 ## 🚀 Download
 
-- Latest release: [MicLock 1.6.5](https://github.com/WantbeFree/MicLock/releases/tag/v1.6.5)
+- Latest release: [MicLock 1.6.6](https://github.com/WantbeFree/MicLock/releases/tag/v1.6.6)
 - Package: Developer ID signed and Apple notarized.
 - Requirements: macOS 13.0+, Apple Silicon Mac (`arm64`).
 - Install: download the zip, unzip it, move `MicLock.app` to `/Applications`, then launch it.
@@ -113,6 +113,7 @@ MicLock uses semantic app versions plus Apple build numbers.
 
 | Version | Build | Notes |
 | --- | --- | --- |
+| 1.6.6 | 14 | Fixed fallback selection persistence, Developer ID signed, Apple notarized |
 | 1.6.5 | 13 | Developer ID signed, Apple notarized, Gatekeeper accepted |
 | 1.6.4 | 12 | Developer ID signed package |
 | 1.6.3 | 11 | Native Apple Silicon release with improved menu and release packaging |
