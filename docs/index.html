@@ -12,6 +12,8 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://wantbefree.github.io/MicLock/">
     <meta name="twitter:card" content="summary_large_image">
+    <link rel="icon" type="image/png" href="app-icon.png">
+    <link rel="apple-touch-icon" href="app-icon.png">
     <style>
       :root {
         color-scheme: light dark;
@@ -64,6 +66,36 @@
         border: 1px solid var(--panel-border);
         border-radius: 999px;
         background: var(--panel);
+        color: var(--muted);
+        font-weight: 650;
+      }
+
+      .product-mark {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .app-icon {
+        width: 74px;
+        height: 74px;
+        border-radius: 18px;
+        box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28);
+      }
+
+      .app-name {
+        display: grid;
+        gap: 2px;
+      }
+
+      .app-name strong {
+        font-size: 28px;
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+
+      .app-name span {
         color: var(--muted);
         font-weight: 650;
       }
@@ -121,7 +153,7 @@
         box-shadow: none;
       }
 
-      .hero img {
+      .hero-shot {
         width: 100%;
         border-radius: 28px;
         box-shadow: 0 26px 80px var(--shadow);
@@ -183,6 +215,7 @@
         "applicationCategory": "UtilitiesApplication",
         "operatingSystem": "macOS 13.0 or newer",
         "softwareVersion": "1.6.6",
+        "image": "https://wantbefree.github.io/MicLock/app-icon.png",
         "downloadUrl": "https://github.com/WantbeFree/MicLock/releases/latest",
         "codeRepository": "https://github.com/WantbeFree/MicLock",
         "description": "MicLock fixes bad Mac Bluetooth headphone sound quality by preventing AirPods, Sony WH-1000XM, and other headset microphones from becoming the default input.",
@@ -198,6 +231,13 @@
     <main class="wrap">
       <section class="hero">
         <div>
+          <div class="product-mark">
+            <img class="app-icon" src="app-icon.png" alt="MicLock app icon">
+            <div class="app-name">
+              <strong>MicLock</strong>
+              <span>Native macOS menu bar utility</span>
+            </div>
+          </div>
           <span class="badge">🎙️ Developer ID signed + notarized</span>
           <h1>Fix bad AirPods and Sony audio on Mac.</h1>
           <p class="lead">MicLock keeps macOS on your preferred microphone, stopping AirPods, AirPods Pro, Sony WH-1000XM4, WH-1000XM5, WH-1000XM6, and other Bluetooth headsets from taking over input and ruining output quality.</p>
@@ -207,7 +247,7 @@
           </div>
           <p class="lead" style="margin-top: 22px; font-size: 17px;"><code>brew tap WantbeFree/tap</code><br><code>brew install --cask miclock</code></p>
         </div>
-        <img src="miclock-menu.png" alt="MicLock menu bar icon with open tray menu on macOS desktop">
+        <img class="hero-shot" src="miclock-menu.png" alt="MicLock menu bar icon with open tray menu on macOS desktop">
       </section>
 
       <section class="grid" aria-label="Highlights">
