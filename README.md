@@ -21,7 +21,7 @@
 MicLock is a tiny native AppKit menu bar app that keeps macOS from switching your input device to a Bluetooth headset microphone. That switch can force Bluetooth audio into low-quality two-way headset mode, making music, calls, games, and meetings sound compressed, muffled, or “telephone-like”.
 
 <p align="center">
-  <img src="docs/miclock-menu.svg" width="560" alt="MicLock menu showing primary microphone, fallback inputs, refresh devices, revive audio, and open at login">
+  <img src="docs/miclock-menu.png" width="720" alt="MicLock menu bar icon with open tray menu on macOS desktop">
 </p>
 
 ## 🚀 Download
