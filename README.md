@@ -30,6 +30,7 @@ MicLock is a tiny native AppKit menu bar app that keeps macOS from switching you
 - Package: Developer ID signed and Apple notarized.
 - Requirements: macOS 13.0+, Apple Silicon Mac (`arm64`).
 - Install: download the zip, unzip it, move `MicLock.app` to `/Applications`, then launch it.
+- Website: [MicLock landing page](https://wantbefree.github.io/MicLock/)
 
 ## 🎧 Why MicLock exists
 
@@ -64,6 +65,20 @@ MicLock is device-agnostic. It works with CoreAudio input devices on Apple Silic
 - Sony WF-1000XM4, Sony WF-1000XM5.
 - Bose QuietComfort, Bose QuietComfort Ultra, Beats, Jabra, Logitech, and other Bluetooth headsets.
 - USB/XLR setups such as Elgato Wave XLR, Focusrite Scarlett, Shure MV7, Rode, Blue, webcam microphones, Thunderbolt docks, and studio interfaces.
+
+## 🧪 Compatibility matrix
+
+| Device or setup | Status | Notes |
+| --- | --- | --- |
+| AirPods 1-4 | Supported | Best used as output-only while MacBook/USB mic stays selected |
+| AirPods Pro 1-3 | Supported | Prevents macOS from choosing the AirPods microphone as default input |
+| AirPods Max | Supported | Same Bluetooth headset-mode prevention workflow |
+| Sony WH-1000XM4 | Supported | Keeps Sony headset mic from becoming default input |
+| Sony WH-1000XM5 | Supported | Same WH-series Bluetooth input lock workflow |
+| Sony WH-1000XM6 | Supported | Same WH-series Bluetooth input lock workflow |
+| Elgato Wave XLR | Supported | Common Primary microphone setup |
+| MacBook built-in microphone | Supported | Good fallback when USB/XLR is disconnected |
+| Thunderbolt docks and USB hubs | Supported | `Refresh Devices` and `Revive Audio...` help after sleep or reconnect |
 
 ## 🧠 How it works
 
@@ -148,6 +163,32 @@ scripts/build_release.sh --unsigned
 | Saved fallback is unavailable | Reconnect the device or choose a new fallback slot |
 | Menu bar icon not visible on macOS 26 | Check System Settings → Menu Bar and allow MicLock if macOS hides menu bar extras |
 | App will not open | Download the latest notarized release from GitHub Releases |
+
+## ❓ FAQ
+
+### Why do AirPods sound bad on Mac?
+
+When macOS uses an AirPods microphone, Bluetooth can switch into a two-way headset mode with lower output quality. MicLock keeps input on a better microphone so AirPods can stay focused on playback.
+
+### Why does Sony WH-1000XM5 sound bad on Mac when the microphone is active?
+
+The Sony headset can enter the same Bluetooth two-way audio path when its microphone becomes active. MicLock prevents macOS from selecting the Sony microphone unless you explicitly choose it.
+
+### Does MicLock improve Bluetooth microphone quality?
+
+No. MicLock avoids the bad mode by selecting a different input device. It does not alter Bluetooth codecs or process microphone audio.
+
+### Can MicLock stop macOS from switching input to AirPods or Sony headphones?
+
+Yes. Set your preferred microphone as Primary. MicLock monitors CoreAudio changes and switches default input back when macOS or a meeting app chooses the headset microphone.
+
+### Does MicLock work with external microphones and docks?
+
+Yes. MicLock works with CoreAudio input devices, including MacBook microphones, USB microphones, XLR interfaces, webcams, displays, Thunderbolt docks, and USB hubs.
+
+### Is MicLock safe and private?
+
+Yes. MicLock does not record audio, call network APIs, or collect analytics. It only reads device metadata and sets the default macOS input device.
 
 ## 📚 Background and community reports
 

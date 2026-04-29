@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>MicLock - Fix bad AirPods and Sony WH-1000XM sound quality on Mac</title>
+    <meta name="description" content="MicLock fixes bad Mac Bluetooth headphone sound quality by preventing AirPods, AirPods Pro, Sony WH-1000XM4, WH-1000XM5, WH-1000XM6, and other headset microphones from becoming the default input.">
+    <meta name="keywords" content="Mac AirPods bad sound quality, Sony WH-1000XM5 bad sound Mac, AirPods microphone Mac fix, macOS Bluetooth headset mode, CoreAudio microphone lock, MicLock">
+    <meta property="og:title" content="MicLock - Mac Bluetooth Headphone Audio Fix">
+    <meta property="og:description" content="Keep macOS on the right microphone so AirPods and Sony WH-1000XM headphones do not fall into low-quality headset mode.">
+    <meta property="og:image" content="https://wantbefree.github.io/MicLock/miclock-menu.png">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://wantbefree.github.io/MicLock/">
+    <meta name="twitter:card" content="summary_large_image">
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #071116;
+        --panel: rgba(255, 255, 255, 0.08);
+        --panel-border: rgba(255, 255, 255, 0.14);
+        --text: #f4fbff;
+        --muted: #b8ccd4;
+        --accent: #56e0d0;
+        --accent-2: #7db6ff;
+        --shadow: rgba(0, 0, 0, 0.3);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 20% 10%, rgba(86, 224, 208, 0.28), transparent 34rem),
+          radial-gradient(circle at 80% 22%, rgba(125, 182, 255, 0.24), transparent 32rem),
+          linear-gradient(140deg, #081319 0%, #102935 48%, #050b0f 100%);
+        color: var(--text);
+        font: 16px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+      }
+
+      a {
+        color: var(--accent);
+      }
+
+      .wrap {
+        width: min(1120px, calc(100% - 40px));
+        margin: 0 auto;
+      }
+
+      .hero {
+        padding: 64px 0 48px;
+        display: grid;
+        grid-template-columns: 1fr 1.2fr;
+        gap: 42px;
+        align-items: center;
+      }
+
+      .badge {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px 13px;
+        border: 1px solid var(--panel-border);
+        border-radius: 999px;
+        background: var(--panel);
+        color: var(--muted);
+        font-weight: 650;
+      }
+
+      h1 {
+        margin: 20px 0 18px;
+        font-size: clamp(44px, 7vw, 82px);
+        line-height: 0.95;
+        letter-spacing: -0.06em;
+      }
+
+      h2 {
+        font-size: clamp(28px, 4vw, 44px);
+        line-height: 1.05;
+        letter-spacing: -0.04em;
+        margin: 0 0 20px;
+      }
+
+      h3 {
+        margin: 0 0 8px;
+        font-size: 21px;
+      }
+
+      .lead {
+        margin: 0 0 28px;
+        color: var(--muted);
+        font-size: 21px;
+        max-width: 56ch;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 14px;
+        background: var(--accent);
+        color: #031012;
+        font-weight: 760;
+        text-decoration: none;
+        box-shadow: 0 18px 40px rgba(86, 224, 208, 0.22);
+      }
+
+      .button.secondary {
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--text);
+        border: 1px solid var(--panel-border);
+        box-shadow: none;
+      }
+
+      .hero img {
+        width: 100%;
+        border-radius: 28px;
+        box-shadow: 0 26px 80px var(--shadow);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        padding: 32px 0;
+      }
+
+      .card {
+        padding: 24px;
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        background: var(--panel);
+        backdrop-filter: blur(16px);
+      }
+
+      .card p,
+      .section p,
+      li {
+        color: var(--muted);
+      }
+
+      .section {
+        padding: 42px 0;
+      }
+
+      .list {
+        display: grid;
+        gap: 12px;
+        padding-left: 20px;
+      }
+
+      .faq {
+        display: grid;
+        gap: 14px;
+      }
+
+      footer {
+        padding: 42px 0 64px;
+        color: var(--muted);
+      }
+
+      @media (max-width: 860px) {
+        .hero,
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "MicLock",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "macOS 13.0 or newer",
+        "softwareVersion": "1.6.5",
+        "downloadUrl": "https://github.com/WantbeFree/MicLock/releases/latest",
+        "codeRepository": "https://github.com/WantbeFree/MicLock",
+        "description": "MicLock fixes bad Mac Bluetooth headphone sound quality by preventing AirPods, Sony WH-1000XM, and other headset microphones from becoming the default input.",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div>
+          <span class="badge">🎙️ Developer ID signed + notarized</span>
+          <h1>Fix bad AirPods and Sony audio on Mac.</h1>
+          <p class="lead">MicLock keeps macOS on your preferred microphone, stopping AirPods, AirPods Pro, Sony WH-1000XM4, WH-1000XM5, WH-1000XM6, and other Bluetooth headsets from taking over input and ruining output quality.</p>
+          <div class="actions">
+            <a class="button" href="https://github.com/WantbeFree/MicLock/releases/latest">Download MicLock</a>
+            <a class="button secondary" href="https://github.com/WantbeFree/MicLock">View on GitHub</a>
+          </div>
+        </div>
+        <img src="miclock-menu.png" alt="MicLock menu bar icon with open tray menu on macOS desktop">
+      </section>
+
+      <section class="grid" aria-label="Highlights">
+        <article class="card">
+          <h3>🎧 Stop headset mode</h3>
+          <p>Keep Bluetooth headphones output-only by locking input to a better Mac, USB, webcam, or XLR microphone.</p>
+        </article>
+        <article class="card">
+          <h3>🧭 Primary + fallbacks</h3>
+          <p>Save one primary input plus three fallback microphones. MicLock resolves the best available device automatically.</p>
+        </article>
+        <article class="card">
+          <h3>🛠️ Recover audio</h3>
+          <p>Refresh CoreAudio devices and revive audio without quitting the app when docks or USB microphones disappear after sleep.</p>
+        </article>
+      </section>
+
+      <section class="section">
+        <h2>Common searches MicLock solves</h2>
+        <ul class="list">
+          <li>Why do AirPods sound bad on Mac when microphone is active?</li>
+          <li>How to stop Mac from switching input to AirPods microphone?</li>
+          <li>Sony WH-1000XM5 bad sound quality on Mac during calls.</li>
+          <li>WH-1000XM4 sounds muffled on macOS when mic is selected.</li>
+          <li>Keep MacBook microphone while using Bluetooth headphones.</li>
+          <li>Elgato Wave XLR disappears after sleep through dock or USB hub.</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>Compatibility</h2>
+        <p>MicLock is device-agnostic and works with CoreAudio input devices on Apple Silicon Macs.</p>
+        <ul class="list">
+          <li>Apple AirPods 1-4, AirPods Pro 1-3, AirPods Max.</li>
+          <li>Sony WH-1000XM4, WH-1000XM5, WH-1000XM6, WF-1000XM4, WF-1000XM5.</li>
+          <li>Elgato Wave XLR, Focusrite Scarlett, Shure MV7, Rode, Blue, webcams, displays, Thunderbolt docks, USB hubs.</li>
+        </ul>
+      </section>
+
+      <section class="section">
+        <h2>FAQ</h2>
+        <div class="faq">
+          <article class="card">
+            <h3>Does MicLock improve Bluetooth microphone quality?</h3>
+            <p>No. It avoids the low-quality Bluetooth path by keeping another microphone selected.</p>
+          </article>
+          <article class="card">
+            <h3>Does it record audio?</h3>
+            <p>No. MicLock does not record audio, call network APIs, or collect analytics.</p>
+          </article>
+          <article class="card">
+            <h3>Why not just disable the headset microphone?</h3>
+            <p>macOS and meeting apps can still change default input. MicLock watches CoreAudio changes and reapplies your preferred input order.</p>
+          </article>
+        </div>
+      </section>
+    </main>
+    <footer class="wrap">
+      <p>MIT licensed. Built for macOS 13+ on Apple Silicon. Source code and releases live on <a href="https://github.com/WantbeFree/MicLock">GitHub</a>.</p>
+    </footer>
+  </body>
+</html>

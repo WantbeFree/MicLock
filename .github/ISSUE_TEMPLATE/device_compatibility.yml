@@ -1,0 +1,47 @@
+name: Device compatibility report
+description: Report whether a headset, microphone, dock, or audio interface works with MicLock.
+title: "[Device]: "
+labels:
+  - compatibility
+body:
+  - type: input
+    id: device
+    attributes:
+      label: Device name
+      placeholder: "Sony WH-1000XM5 / AirPods Pro 3 / Elgato Wave XLR"
+    validations:
+      required: true
+  - type: dropdown
+    id: status
+    attributes:
+      label: Status
+      options:
+        - Works
+        - Partially works
+        - Does not work
+        - Needs more testing
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "macOS 26.4"
+    validations:
+      required: true
+  - type: input
+    id: mac
+    attributes:
+      label: Mac model
+      placeholder: "MacBook Air M3"
+  - type: textarea
+    id: setup
+    attributes:
+      label: Setup details
+      description: Include Bluetooth headphones, primary microphone, fallback devices, dock/hub, and meeting apps.
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What worked, what failed, and what users should know.
+

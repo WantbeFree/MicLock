@@ -1,0 +1,6 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Download latest release
+    url: https://github.com/WantbeFree/MicLock/releases/latest
+    about: Install the current signed and notarized MicLock release.
+
