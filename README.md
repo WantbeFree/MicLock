@@ -32,6 +32,13 @@ MicLock is a tiny native AppKit menu bar app that keeps macOS from switching you
 - Install: download the zip, unzip it, move `MicLock.app` to `/Applications`, then launch it.
 - Website: [MicLock landing page](https://wantbefree.github.io/MicLock/)
 
+Homebrew:
+
+```bash
+brew tap WantbeFree/tap
+brew install --cask miclock
+```
+
 ## 🎧 Why MicLock exists
 
 Apple documents the root behavior: when a Bluetooth headset microphone is used, macOS can switch the headset into a lower-quality mode for simultaneous input and output. Community reports show the same pattern with AirPods, Sony WH-1000XM series, and other Bluetooth headsets.
