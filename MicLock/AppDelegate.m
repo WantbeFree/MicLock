@@ -2,6 +2,8 @@
 #import "GBLaunchAtLogin.h"
 #import "MLAudioDevice.h"
 #import "MLAudioDeviceService.h"
+#import "MLAudioInputMonitor.h"
+#import "MLAudioInputStatusView.h"
 #import "MLCoreAudioReviver.h"
 #import "MLFallbackSelection.h"
 #import "MLInputSelectionResolver.h"
@@ -14,6 +16,8 @@ static NSTimeInterval const kAudioRefreshDebounceInterval = 0.15;
 static NSTimeInterval const kWakeRefreshInitialDelay = 1.0;
 static NSTimeInterval const kWakeRefreshFollowUpDelay = 5.0;
 static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
+static CGFloat const kInputSignalActiveLevel = 0.12;
+static NSTimeInterval const kInputSignalRecentInterval = 1.5;
 
 @interface MLAudioRefreshResult : NSObject
 
@@ -76,7 +80,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
 
 @end
 
-@interface AppDelegate () <MLStatusMenuActionHandling>
+@interface AppDelegate () <MLStatusMenuActionHandling, MLAudioInputMonitorDelegate>
 
 @property (weak) IBOutlet NSWindow *window;
 @property (nonatomic, assign) BOOL paused;
@@ -89,16 +93,29 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
 @property (nonatomic, copy) NSArray<MLFallbackSelection *> *fallbackSelections;
 @property (nonatomic, strong) MLPreferencesStore *preferencesStore;
 @property (nonatomic, strong) MLAudioDeviceService *audioDeviceService;
+@property (nonatomic, strong) MLAudioInputMonitor *audioInputMonitor;
 @property (nonatomic, strong) MLCoreAudioReviver *coreAudioReviver;
 @property (nonatomic, strong) NSMenu *menu;
 @property (nonatomic, strong) NSStatusItem *statusItem;
 @property (nonatomic, strong) NSMenuItem *startupItem;
+@property (nonatomic, strong) MLAudioInputStatusView *inputStatusView;
 @property (nonatomic, copy) NSString *lastPreferredInputDisplayName;
 @property (nonatomic, strong) NSDate *lastUnavailableNotificationDate;
 @property (nonatomic, assign) BOOL hasObservedPreferredInputAvailability;
 @property (nonatomic, assign) BOOL lastPreferredInputAvailable;
 @property (nonatomic, assign) BOOL reviveInProgress;
 @property (nonatomic, assign) BOOL reopenMenuAfterRefresh;
+@property (nonatomic, assign) BOOL statusMenuOpen;
+@property (nonatomic, assign) BOOL pendingMicrophoneAccessRequest;
+@property (nonatomic, assign) AudioDeviceID activeInputID;
+@property (nonatomic, copy) NSString *activeInputDisplayName;
+@property (nonatomic, assign) CGFloat activeInputLevel;
+@property (nonatomic, assign) Float32 activeInputVolume;
+@property (nonatomic, assign) BOOL activeInputVolumeAvailable;
+@property (nonatomic, assign) BOOL activeInputMuted;
+@property (nonatomic, assign) BOOL activeInputMuteAvailable;
+@property (nonatomic, copy) NSString *activeInputMonitorErrorMessage;
+@property (nonatomic, strong) NSDate *lastActiveInputSignalDate;
 
 @end
 
@@ -115,7 +132,12 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
     self.fallbackSelections = [self.preferencesStore fallbackSelections];
     self.refreshQueue = dispatch_queue_create("com.miclock.audio-refresh", DISPATCH_QUEUE_SERIAL);
     self.audioDeviceService = [[MLAudioDeviceService alloc] init];
+    self.audioInputMonitor = [[MLAudioInputMonitor alloc] init];
+    self.audioInputMonitor.delegate = self;
     self.coreAudioReviver = [[MLCoreAudioReviver alloc] init];
+    self.activeInputID = kAudioDeviceUnknown;
+    self.activeInputDisplayName = @"";
+    self.activeInputMonitorErrorMessage = @"";
 
     [self setupStatusItem];
 
@@ -137,6 +159,8 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
 {
     (void)notification;
     [[[NSWorkspace sharedWorkspace] notificationCenter] removeObserver:self];
+    [self.audioInputMonitor stopMonitoring];
+    [self.audioDeviceService stopObservingDevice];
     [self.audioDeviceService stopMonitoring];
 }
 
@@ -430,7 +454,23 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
 - (void)menuWillOpen:(NSMenu *)menu
 {
     (void)menu;
+    self.statusMenuOpen = YES;
     [self updateStartupItemState];
+    [self reloadActiveInputVolume];
+    [self reloadActiveInputMuteState];
+    [self updateInputStatusView];
+    [self refreshActiveInputObservation];
+    [self startAudioInputMonitoringForOpenMenu];
+}
+
+- (void)menuDidClose:(NSMenu *)menu
+{
+    (void)menu;
+    self.statusMenuOpen = NO;
+    self.activeInputLevel = 0.0;
+    self.lastActiveInputSignalDate = nil;
+    [self.audioInputMonitor stopMonitoring];
+    [self refreshActiveInputObservation];
 }
 
 - (NSString *)preferredInputUIDByEnsuringSelection:(NSString *)preferredInputUID
@@ -545,6 +585,7 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
     }
 
     [self updatePreferredInputAvailabilityFromResult:result];
+    [self updateActiveInputStateFromResult:result];
 
     MLStatusMenuBuildResult *menuResult = [MLStatusMenuBuilder menuWithDevices:result.devices
                                                          currentDefaultInputID:result.currentDefaultInputID
@@ -556,10 +597,17 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
                                                                       delegate:self];
     self.menu = menuResult.menu;
     self.startupItem = menuResult.startupItem;
+    self.inputStatusView = menuResult.inputStatusView;
     [self updateStartupItemState];
+    [self updateInputStatusView];
     [self.statusItem setMenu:self.menu];
 
     self.refreshInProgress = NO;
+    [self refreshActiveInputObservation];
+    if (self.statusMenuOpen)
+    {
+        [self startAudioInputMonitoringForOpenMenu];
+    }
     if (self.reopenMenuAfterRefresh)
     {
         self.reopenMenuAfterRefresh = NO;
@@ -572,6 +620,46 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
     (void)item;
     self.reopenMenuAfterRefresh = YES;
     [self scheduleAudioStateRefresh];
+}
+
+- (void)inputVolumeSliderChanged:(NSSlider *)slider
+{
+    if (self.activeInputID == kAudioDeviceUnknown)
+    {
+        return;
+    }
+
+    Float32 requestedVolume = (Float32)slider.doubleValue;
+    if ([self.audioDeviceService setInputVolume:requestedVolume forDevice:self.activeInputID])
+    {
+        self.activeInputVolume = requestedVolume;
+        self.activeInputVolumeAvailable = YES;
+        [self updateInputStatusView];
+        return;
+    }
+
+    [self reloadActiveInputVolume];
+    [self updateInputStatusView];
+}
+
+- (void)inputMuteCheckboxChanged:(NSButton *)button
+{
+    if (self.activeInputID == kAudioDeviceUnknown)
+    {
+        return;
+    }
+
+    BOOL requestedMuted = (button.state == NSControlStateValueOn);
+    if ([self.audioDeviceService setInputMuted:requestedMuted forDevice:self.activeInputID])
+    {
+        self.activeInputMuted = requestedMuted;
+        self.activeInputMuteAvailable = YES;
+        [self updateInputStatusView];
+        return;
+    }
+
+    [self reloadActiveInputMuteState];
+    [self updateInputStatusView];
 }
 
 - (void)reviveAudio:(NSMenuItem *)item
@@ -747,6 +835,243 @@ static NSTimeInterval const kUnavailableNotificationMinimumInterval = 300.0;
     alert.informativeText = message.length > 0 ? message : @"macOS did not allow MicLock to restart CoreAudio.";
     [alert addButtonWithTitle:@"OK"];
     [alert runModal];
+}
+
+- (void)updateActiveInputStateFromResult:(MLAudioRefreshResult *)result
+{
+    AudioDeviceID activeInputID = result.currentDefaultInputID;
+    MLAudioDevice *activeDevice = [MLInputSelectionResolver deviceWithID:activeInputID
+                                                               inDevices:result.devices];
+
+    if (activeDevice == nil && result.resolution.device != nil)
+    {
+        activeDevice = result.resolution.device;
+        activeInputID = activeDevice.deviceID;
+    }
+
+    if (self.activeInputID != activeInputID)
+    {
+        self.activeInputLevel = 0.0;
+        self.lastActiveInputSignalDate = nil;
+        [self.audioInputMonitor stopMonitoring];
+    }
+
+    self.activeInputID = activeInputID;
+    self.activeInputDisplayName = activeDevice.displayName ?: @"Current input";
+    [self reloadActiveInputVolume];
+    [self reloadActiveInputMuteState];
+}
+
+- (void)reloadActiveInputVolume
+{
+    if (self.activeInputID == kAudioDeviceUnknown)
+    {
+        self.activeInputVolume = 0.0f;
+        self.activeInputVolumeAvailable = NO;
+        return;
+    }
+
+    Float32 inputVolume = 0.0f;
+    if ([self.audioDeviceService getInputVolume:&inputVolume forDevice:self.activeInputID])
+    {
+        self.activeInputVolume = MIN(1.0f, MAX(0.0f, inputVolume));
+        self.activeInputVolumeAvailable = YES;
+        return;
+    }
+
+    self.activeInputVolume = 0.0f;
+    self.activeInputVolumeAvailable = NO;
+}
+
+- (void)reloadActiveInputMuteState
+{
+    if (self.activeInputID == kAudioDeviceUnknown)
+    {
+        self.activeInputMuted = NO;
+        self.activeInputMuteAvailable = NO;
+        return;
+    }
+
+    BOOL muted = NO;
+    if ([self.audioDeviceService getInputMuted:&muted forDevice:self.activeInputID])
+    {
+        self.activeInputMuted = muted;
+        self.activeInputMuteAvailable = YES;
+        return;
+    }
+
+    self.activeInputMuted = NO;
+    self.activeInputMuteAvailable = NO;
+}
+
+- (void)refreshActiveInputObservation
+{
+    if (self.statusMenuOpen && self.activeInputID != kAudioDeviceUnknown)
+    {
+        __weak typeof(self) weakSelf = self;
+        [self.audioDeviceService startObservingDevice:self.activeInputID changeHandler:^
+        {
+            AppDelegate *strongSelf = weakSelf;
+            if (strongSelf == nil || !strongSelf.statusMenuOpen)
+            {
+                return;
+            }
+
+            [strongSelf reloadActiveInputVolume];
+            [strongSelf reloadActiveInputMuteState];
+            [strongSelf updateInputStatusView];
+        }];
+        return;
+    }
+
+    [self.audioDeviceService stopObservingDevice];
+}
+
+- (void)startAudioInputMonitoringForOpenMenu
+{
+    if (!self.statusMenuOpen || self.activeInputID == kAudioDeviceUnknown)
+    {
+        return;
+    }
+
+    AVAuthorizationStatus authorizationStatus = [self.audioInputMonitor microphoneAuthorizationStatus];
+    if (authorizationStatus == AVAuthorizationStatusNotDetermined)
+    {
+        if (self.pendingMicrophoneAccessRequest)
+        {
+            return;
+        }
+
+        self.pendingMicrophoneAccessRequest = YES;
+        self.activeInputMonitorErrorMessage = @"Microphone access needed.";
+        [self updateInputStatusView];
+
+        __weak typeof(self) weakSelf = self;
+        [self.audioInputMonitor requestMicrophoneAccessWithCompletion:^(BOOL granted)
+        {
+            AppDelegate *strongSelf = weakSelf;
+            if (strongSelf == nil)
+            {
+                return;
+            }
+
+            strongSelf.pendingMicrophoneAccessRequest = NO;
+            strongSelf.activeInputMonitorErrorMessage = granted ? @"" : @"Allow mic access in System Settings.";
+            [strongSelf updateInputStatusView];
+
+            if (granted && strongSelf.statusMenuOpen)
+            {
+                [strongSelf startAudioInputMonitoringForOpenMenu];
+            }
+        }];
+        return;
+    }
+
+    if (authorizationStatus == AVAuthorizationStatusDenied ||
+        authorizationStatus == AVAuthorizationStatusRestricted)
+    {
+        self.activeInputMonitorErrorMessage = @"Allow mic access in System Settings.";
+        [self.audioInputMonitor stopMonitoring];
+        [self updateInputStatusView];
+        return;
+    }
+
+    self.activeInputMonitorErrorMessage = @"";
+    self.activeInputLevel = 0.0;
+    self.lastActiveInputSignalDate = nil;
+    [self.audioInputMonitor stopMonitoring];
+
+    if (![self.audioInputMonitor startMonitoring])
+    {
+        self.activeInputMonitorErrorMessage = self.audioInputMonitor.lastErrorMessage ?: @"Input meter unavailable.";
+    }
+
+    [self updateInputStatusView];
+}
+
+- (void)updateInputStatusView
+{
+    if (self.inputStatusView == nil)
+    {
+        return;
+    }
+
+    AVAuthorizationStatus authorizationStatus = [self.audioInputMonitor microphoneAuthorizationStatus];
+    BOOL monitoringAvailable = (authorizationStatus == AVAuthorizationStatusAuthorized &&
+                                self.activeInputMonitorErrorMessage.length == 0 &&
+                                self.statusMenuOpen);
+
+    [self.inputStatusView updateWithDeviceName:self.activeInputDisplayName
+                                    statusText:[self inputStatusText]
+                                         level:self.activeInputLevel
+                                   inputVolume:self.activeInputVolume
+                               volumeAvailable:self.activeInputVolumeAvailable
+                                         muted:self.activeInputMuted
+                                 muteAvailable:self.activeInputMuteAvailable
+                           monitoringAvailable:monitoringAvailable];
+}
+
+- (NSString *)inputStatusText
+{
+    if (self.activeInputID == kAudioDeviceUnknown)
+    {
+        return @"No active input.";
+    }
+
+    AVAuthorizationStatus authorizationStatus = [self.audioInputMonitor microphoneAuthorizationStatus];
+    if (authorizationStatus == AVAuthorizationStatusNotDetermined)
+    {
+        return @"Microphone access needed.";
+    }
+    if (authorizationStatus == AVAuthorizationStatusDenied ||
+        authorizationStatus == AVAuthorizationStatusRestricted)
+    {
+        return @"Allow mic access in System Settings.";
+    }
+    if (self.activeInputMonitorErrorMessage.length > 0)
+    {
+        return self.activeInputMonitorErrorMessage;
+    }
+    if (self.activeInputMuteAvailable && self.activeInputMuted)
+    {
+        return @"Input is muted. Uncheck Muted to restore sound.";
+    }
+    if (!self.statusMenuOpen)
+    {
+        return @"Open menu to test.";
+    }
+    if (self.lastActiveInputSignalDate != nil &&
+        [[NSDate date] timeIntervalSinceDate:self.lastActiveInputSignalDate] <= kInputSignalRecentInterval)
+    {
+        return @"Signal OK.";
+    }
+    if (!self.activeInputVolumeAvailable)
+    {
+        return @"Speak to test. Volume unsupported.";
+    }
+    return @"Speak to test.";
+}
+
+- (void)audioInputMonitor:(MLAudioInputMonitor *)monitor didUpdateLevel:(CGFloat)level decibels:(Float32)decibels
+{
+    (void)monitor;
+    (void)decibels;
+
+    self.activeInputMonitorErrorMessage = @"";
+    self.activeInputLevel = level;
+    if (level >= kInputSignalActiveLevel)
+    {
+        self.lastActiveInputSignalDate = [NSDate date];
+    }
+    [self updateInputStatusView];
+}
+
+- (void)audioInputMonitor:(MLAudioInputMonitor *)monitor didFailWithMessage:(NSString *)message
+{
+    (void)monitor;
+    self.activeInputMonitorErrorMessage = message ?: @"Input meter unavailable.";
+    self.activeInputLevel = 0.0;
+    [self updateInputStatusView];
 }
 
 @end

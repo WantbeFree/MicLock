@@ -26,6 +26,11 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
 @property (nonatomic, copy) AudioObjectPropertyListenerBlock changeListener;
 @property (nonatomic, copy) dispatch_block_t changeHandler;
 
+@property (nonatomic, strong) dispatch_queue_t deviceListenerQueue;
+@property (nonatomic, copy) AudioObjectPropertyListenerBlock deviceChangeListener;
+@property (nonatomic, copy) dispatch_block_t deviceChangeHandler;
+@property (nonatomic, assign) AudioDeviceID observedDeviceID;
+
 @end
 
 @implementation MLAudioDeviceService
@@ -145,6 +150,137 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
     return YES;
 }
 
+- (BOOL)getInputVolume:(Float32 *)volume forDevice:(AudioDeviceID)deviceID
+{
+    if (volume == NULL || deviceID == kAudioDeviceUnknown)
+    {
+        return NO;
+    }
+
+    Float32 masterVolume = 0.0f;
+    if ([self getInputVolume:&masterVolume forDevice:deviceID element:kAudioObjectPropertyElementMain])
+    {
+        *volume = masterVolume;
+        return YES;
+    }
+
+    UInt32 channelCount = [self inputChannelCountForDevice:deviceID];
+    if (channelCount == 0)
+    {
+        return NO;
+    }
+
+    Float32 volumeSum = 0.0f;
+    UInt32 readableChannelCount = 0;
+    for (UInt32 channel = 1; channel <= channelCount; channel++)
+    {
+        Float32 channelVolume = 0.0f;
+        if ([self getInputVolume:&channelVolume forDevice:deviceID element:channel])
+        {
+            volumeSum += channelVolume;
+            readableChannelCount += 1;
+        }
+    }
+
+    if (readableChannelCount == 0)
+    {
+        return NO;
+    }
+
+    *volume = volumeSum / readableChannelCount;
+    return YES;
+}
+
+- (BOOL)setInputVolume:(Float32)volume forDevice:(AudioDeviceID)deviceID
+{
+    if (deviceID == kAudioDeviceUnknown)
+    {
+        return NO;
+    }
+
+    Float32 clampedVolume = MIN(1.0f, MAX(0.0f, volume));
+    if ([self setInputVolume:clampedVolume forDevice:deviceID element:kAudioObjectPropertyElementMain])
+    {
+        return YES;
+    }
+
+    UInt32 channelCount = [self inputChannelCountForDevice:deviceID];
+    BOOL didSetAnyChannel = NO;
+    for (UInt32 channel = 1; channel <= channelCount; channel++)
+    {
+        if ([self setInputVolume:clampedVolume forDevice:deviceID element:channel])
+        {
+            didSetAnyChannel = YES;
+        }
+    }
+
+    return didSetAnyChannel;
+}
+
+- (BOOL)getInputMuted:(BOOL *)muted forDevice:(AudioDeviceID)deviceID
+{
+    if (muted == NULL || deviceID == kAudioDeviceUnknown)
+    {
+        return NO;
+    }
+
+    BOOL readAnyElement = NO;
+    BOOL anyMuted = NO;
+
+    UInt32 masterMuted = 0;
+    if ([self getInputMuted:&masterMuted forDevice:deviceID element:kAudioObjectPropertyElementMain])
+    {
+        readAnyElement = YES;
+        anyMuted = anyMuted || (masterMuted != 0);
+    }
+
+    UInt32 channelCount = [self inputChannelCountForDevice:deviceID];
+    for (UInt32 channel = 1; channel <= channelCount; channel++)
+    {
+        UInt32 channelMuted = 0;
+        if ([self getInputMuted:&channelMuted forDevice:deviceID element:channel])
+        {
+            readAnyElement = YES;
+            anyMuted = anyMuted || (channelMuted != 0);
+        }
+    }
+
+    if (!readAnyElement)
+    {
+        return NO;
+    }
+
+    *muted = anyMuted;
+    return YES;
+}
+
+- (BOOL)setInputMuted:(BOOL)muted forDevice:(AudioDeviceID)deviceID
+{
+    if (deviceID == kAudioDeviceUnknown)
+    {
+        return NO;
+    }
+
+    UInt32 mutedValue = muted ? 1 : 0;
+    BOOL didSetAnyElement = NO;
+
+    if ([self setInputMuted:mutedValue forDevice:deviceID element:kAudioObjectPropertyElementMain])
+    {
+        didSetAnyElement = YES;
+    }
+
+    UInt32 channelCount = [self inputChannelCountForDevice:deviceID];
+    for (UInt32 channel = 1; channel <= channelCount; channel++)
+    {
+        if ([self setInputMuted:mutedValue forDevice:deviceID element:channel])
+        {
+            didSetAnyElement = YES;
+        }
+    }
+
+    return didSetAnyElement;
+}
+
 - (void)startMonitoringWithChangeHandler:(dispatch_block_t)changeHandler
 {
     [self stopMonitoring];
@@ -210,6 +346,91 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
     MLLogAudioStatus(@"AudioObjectRemovePropertyListenerBlock", status);
 }
 
+- (void)startObservingDevice:(AudioDeviceID)deviceID changeHandler:(dispatch_block_t)changeHandler
+{
+    if (self.observedDeviceID == deviceID && self.deviceChangeListener != nil)
+    {
+        self.deviceChangeHandler = changeHandler;
+        return;
+    }
+
+    [self stopObservingDevice];
+
+    if (deviceID == kAudioDeviceUnknown)
+    {
+        return;
+    }
+
+    self.observedDeviceID = deviceID;
+    self.deviceChangeHandler = changeHandler;
+    self.deviceListenerQueue = dispatch_queue_create("com.miclock.device-listener", DISPATCH_QUEUE_SERIAL);
+
+    __weak typeof(self) weakSelf = self;
+    self.deviceChangeListener = ^(UInt32 inNumberAddresses, const AudioObjectPropertyAddress *inAddresses)
+    {
+        (void)inNumberAddresses;
+        (void)inAddresses;
+
+        dispatch_async(dispatch_get_main_queue(), ^
+        {
+            MLAudioDeviceService *strongSelf = weakSelf;
+            if (strongSelf.deviceChangeHandler != nil)
+            {
+                strongSelf.deviceChangeHandler();
+            }
+        });
+    };
+
+    [self addDeviceListenerForSelector:kAudioDevicePropertyMute];
+    [self addDeviceListenerForSelector:kAudioDevicePropertyVolumeScalar];
+}
+
+- (void)stopObservingDevice
+{
+    if (self.deviceChangeListener == nil)
+    {
+        self.deviceChangeHandler = nil;
+        self.observedDeviceID = kAudioDeviceUnknown;
+        return;
+    }
+
+    [self removeDeviceListenerForSelector:kAudioDevicePropertyMute];
+    [self removeDeviceListenerForSelector:kAudioDevicePropertyVolumeScalar];
+
+    self.deviceChangeListener = nil;
+    self.deviceChangeHandler = nil;
+    self.deviceListenerQueue = nil;
+    self.observedDeviceID = kAudioDeviceUnknown;
+}
+
+- (void)addDeviceListenerForSelector:(AudioObjectPropertySelector)selector
+{
+    AudioObjectPropertyAddress address = {
+        selector,
+        kAudioObjectPropertyScopeInput,
+        kAudioObjectPropertyElementWildcard
+    };
+    OSStatus status = AudioObjectAddPropertyListenerBlock(self.observedDeviceID,
+                                                          &address,
+                                                          self.deviceListenerQueue,
+                                                          self.deviceChangeListener);
+    MLLogAudioStatus(@"AudioObjectAddPropertyListenerBlock(device)", status);
+}
+
+- (void)removeDeviceListenerForSelector:(AudioObjectPropertySelector)selector
+{
+    AudioObjectPropertyAddress address = {
+        selector,
+        kAudioObjectPropertyScopeInput,
+        kAudioObjectPropertyElementWildcard
+    };
+    OSStatus status = AudioObjectRemovePropertyListenerBlock(self.observedDeviceID,
+                                                             &address,
+                                                             self.deviceListenerQueue,
+                                                             self.deviceChangeListener);
+    MLLogAudioStatus(@"AudioObjectRemovePropertyListenerBlock(device)", status);
+}
+
 - (BOOL)deviceIsAlive:(AudioDeviceID)deviceID
 {
     UInt32 alive = [self uint32PropertyForObject:deviceID
@@ -230,13 +451,18 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
 
 - (BOOL)deviceHasInputChannels:(AudioDeviceID)deviceID
 {
+    return [self inputChannelCountForDevice:deviceID] > 0;
+}
+
+- (UInt32)inputChannelCountForDevice:(AudioDeviceID)deviceID
+{
     AudioObjectPropertyAddress address = MLAudioAddress(kAudioDevicePropertyStreamConfiguration,
                                                         kAudioObjectPropertyScopeInput);
     UInt32 dataSize = 0;
     OSStatus status = AudioObjectGetPropertyDataSize(deviceID, &address, 0, NULL, &dataSize);
     if (status != noErr || dataSize == 0)
     {
-        return NO;
+        return 0;
     }
 
     NSMutableData *bufferData = [NSMutableData dataWithLength:dataSize];
@@ -249,7 +475,7 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
     if (status != noErr)
     {
         MLLogAudioStatus(@"AudioObjectGetPropertyData(streamConfiguration)", status);
-        return NO;
+        return 0;
     }
 
     AudioBufferList *bufferList = bufferData.mutableBytes;
@@ -259,7 +485,7 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
         channelCount += bufferList->mBuffers[bufferIndex].mNumberChannels;
     }
 
-    return channelCount > 0;
+    return channelCount;
 }
 
 - (NSString *)displayNameForDeviceName:(NSString *)name transportType:(UInt32)transportType
@@ -354,6 +580,140 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
     }
 
     return value;
+}
+
+- (BOOL)getInputVolume:(Float32 *)volume
+             forDevice:(AudioDeviceID)deviceID
+               element:(AudioObjectPropertyElement)element
+{
+    AudioObjectPropertyAddress address = MLAudioAddress(kAudioDevicePropertyVolumeScalar,
+                                                        kAudioObjectPropertyScopeInput);
+    address.mElement = element;
+
+    if (!AudioObjectHasProperty(deviceID, &address))
+    {
+        return NO;
+    }
+
+    Float32 value = 0.0f;
+    UInt32 dataSize = sizeof(value);
+    OSStatus status = AudioObjectGetPropertyData(deviceID,
+                                                 &address,
+                                                 0,
+                                                 NULL,
+                                                 &dataSize,
+                                                 &value);
+    if (status != noErr)
+    {
+        return NO;
+    }
+
+    *volume = value;
+    return YES;
+}
+
+- (BOOL)setInputVolume:(Float32)volume
+             forDevice:(AudioDeviceID)deviceID
+               element:(AudioObjectPropertyElement)element
+{
+    AudioObjectPropertyAddress address = MLAudioAddress(kAudioDevicePropertyVolumeScalar,
+                                                        kAudioObjectPropertyScopeInput);
+    address.mElement = element;
+
+    if (!AudioObjectHasProperty(deviceID, &address))
+    {
+        return NO;
+    }
+
+    Boolean settable = false;
+    OSStatus status = AudioObjectIsPropertySettable(deviceID, &address, &settable);
+    if (status != noErr || !settable)
+    {
+        return NO;
+    }
+
+    Float32 value = volume;
+    UInt32 dataSize = sizeof(value);
+    status = AudioObjectSetPropertyData(deviceID,
+                                        &address,
+                                        0,
+                                        NULL,
+                                        dataSize,
+                                        &value);
+    if (status != noErr)
+    {
+        MLLogAudioStatus(@"AudioObjectSetPropertyData(inputVolume)", status);
+        return NO;
+    }
+
+    return YES;
+}
+
+- (BOOL)getInputMuted:(UInt32 *)muted
+            forDevice:(AudioDeviceID)deviceID
+              element:(AudioObjectPropertyElement)element
+{
+    AudioObjectPropertyAddress address = MLAudioAddress(kAudioDevicePropertyMute,
+                                                        kAudioObjectPropertyScopeInput);
+    address.mElement = element;
+
+    if (!AudioObjectHasProperty(deviceID, &address))
+    {
+        return NO;
+    }
+
+    UInt32 value = 0;
+    UInt32 dataSize = sizeof(value);
+    OSStatus status = AudioObjectGetPropertyData(deviceID,
+                                                 &address,
+                                                 0,
+                                                 NULL,
+                                                 &dataSize,
+                                                 &value);
+    if (status != noErr)
+    {
+        return NO;
+    }
+
+    *muted = value;
+    return YES;
+}
+
+- (BOOL)setInputMuted:(UInt32)muted
+            forDevice:(AudioDeviceID)deviceID
+              element:(AudioObjectPropertyElement)element
+{
+    AudioObjectPropertyAddress address = MLAudioAddress(kAudioDevicePropertyMute,
+                                                        kAudioObjectPropertyScopeInput);
+    address.mElement = element;
+
+    if (!AudioObjectHasProperty(deviceID, &address))
+    {
+        return NO;
+    }
+
+    Boolean settable = false;
+    OSStatus status = AudioObjectIsPropertySettable(deviceID, &address, &settable);
+    if (status != noErr || !settable)
+    {
+        return NO;
+    }
+
+    UInt32 value = muted;
+    UInt32 dataSize = sizeof(value);
+    status = AudioObjectSetPropertyData(deviceID,
+                                        &address,
+                                        0,
+                                        NULL,
+                                        dataSize,
+                                        &value);
+    if (status != noErr)
+    {
+        MLLogAudioStatus(@"AudioObjectSetPropertyData(inputMute)", status);
+        return NO;
+    }
+
+    return YES;
 }
 
 @end
