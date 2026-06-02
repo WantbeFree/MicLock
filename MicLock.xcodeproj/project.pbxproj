@@ -23,6 +23,10 @@
 			E61C10322EED000100A0B001 /* MLStatusMenuBuilder.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10312EED000100A0B001 /* MLStatusMenuBuilder.m */; };
 			E61C10422EED000100A0B001 /* MLMenuSelectionPayload.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10412EED000100A0B001 /* MLMenuSelectionPayload.m */; };
 			E61C10522EED000100A0B001 /* MLCoreAudioReviver.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10512EED000100A0B001 /* MLCoreAudioReviver.m */; };
+			E61C10622EED000100A0B001 /* MLAudioInputMonitor.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10612EED000100A0B001 /* MLAudioInputMonitor.m */; };
+			E61C10652EED000100A0B001 /* MLAudioInputStatusView.m in Sources */ = {isa = PBXBuildFile; fileRef = E61C10642EED000100A0B001 /* MLAudioInputStatusView.m */; };
+			E61C10682EED000100A0B001 /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E61C10662EED000100A0B001 /* AVFoundation.framework */; };
+			E61C10692EED000100A0B001 /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E61C10672EED000100A0B001 /* AudioToolbox.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -59,6 +63,12 @@
 			E61C10412EED000100A0B001 /* MLMenuSelectionPayload.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MLMenuSelectionPayload.m; sourceTree = "<group>"; };
 			E61C10502EED000100A0B001 /* MLCoreAudioReviver.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MLCoreAudioReviver.h; sourceTree = "<group>"; };
 			E61C10512EED000100A0B001 /* MLCoreAudioReviver.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MLCoreAudioReviver.m; sourceTree = "<group>"; };
+			E61C10602EED000100A0B001 /* MLAudioInputMonitor.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MLAudioInputMonitor.h; sourceTree = "<group>"; };
+			E61C10612EED000100A0B001 /* MLAudioInputMonitor.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MLAudioInputMonitor.m; sourceTree = "<group>"; };
+			E61C10632EED000100A0B001 /* MLAudioInputStatusView.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MLAudioInputStatusView.h; sourceTree = "<group>"; };
+			E61C10642EED000100A0B001 /* MLAudioInputStatusView.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MLAudioInputStatusView.m; sourceTree = "<group>"; };
+			E61C10662EED000100A0B001 /* AVFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AVFoundation.framework; path = System/Library/Frameworks/AVFoundation.framework; sourceTree = SDKROOT; };
+			E61C10672EED000100A0B001 /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,6 +76,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E61C10682EED000100A0B001 /* AVFoundation.framework in Frameworks */,
+				E61C10692EED000100A0B001 /* AudioToolbox.framework in Frameworks */,
 				4D5897FD2E2A4508007E14EF /* ServiceManagement.framework in Frameworks */,
 				4D5897FF2E2A4508007E14EF /* UserNotifications.framework in Frameworks */,
 			);
@@ -101,6 +113,10 @@
 					E61C10112EED000100A0B001 /* MLAudioDevice.m */,
 					E61C10182EED000100A0B001 /* MLAudioDeviceService.h */,
 					E61C10192EED000100A0B001 /* MLAudioDeviceService.m */,
+					E61C10602EED000100A0B001 /* MLAudioInputMonitor.h */,
+					E61C10612EED000100A0B001 /* MLAudioInputMonitor.m */,
+					E61C10632EED000100A0B001 /* MLAudioInputStatusView.h */,
+					E61C10642EED000100A0B001 /* MLAudioInputStatusView.m */,
 					E61C10502EED000100A0B001 /* MLCoreAudioReviver.h */,
 					E61C10512EED000100A0B001 /* MLCoreAudioReviver.m */,
 					E61C10122EED000100A0B001 /* MLFallbackSelection.h */,
@@ -128,6 +144,8 @@
 			children = (
 				4D5897FC2E2A4508007E14EF /* ServiceManagement.framework */,
 				4D5897FE2E2A4508007E14EF /* UserNotifications.framework */,
+				E61C10662EED000100A0B001 /* AVFoundation.framework */,
+				E61C10672EED000100A0B001 /* AudioToolbox.framework */,
 				335B96722199C07000F6D77B /* GBLaunchAtLogin */,
 				3333F8BB2198771700816A9F /* CoreAudio.framework */,
 			);
@@ -224,6 +242,8 @@
 				3333F8AF219874D600816A9F /* main.m in Sources */,
 				E61C10202EED000100A0B001 /* MLAudioDevice.m in Sources */,
 				E61C10242EED000100A0B001 /* MLAudioDeviceService.m in Sources */,
+				E61C10622EED000100A0B001 /* MLAudioInputMonitor.m in Sources */,
+				E61C10652EED000100A0B001 /* MLAudioInputStatusView.m in Sources */,
 				E61C10522EED000100A0B001 /* MLCoreAudioReviver.m in Sources */,
 				E61C10212EED000100A0B001 /* MLFallbackSelection.m in Sources */,
 				E61C10222EED000100A0B001 /* MLInputSelectionResolver.m in Sources */,

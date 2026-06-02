@@ -1,5 +1,6 @@
 #import "MLStatusMenuBuilder.h"
 #import "MLAudioDevice.h"
+#import "MLAudioInputStatusView.h"
 #import "MLFallbackSelection.h"
 #import "MLInputSelectionResolver.h"
 #import "MLMenuSelectionPayload.h"
@@ -7,18 +8,25 @@
 
 @implementation MLStatusMenuBuildResult
 
-+ (instancetype)resultWithMenu:(NSMenu *)menu startupItem:(NSMenuItem *)startupItem
++ (instancetype)resultWithMenu:(NSMenu *)menu
+                   startupItem:(NSMenuItem *)startupItem
+                inputStatusView:(MLAudioInputStatusView *)inputStatusView
 {
-    return [[self alloc] initWithMenu:menu startupItem:startupItem];
+    return [[self alloc] initWithMenu:menu
+                          startupItem:startupItem
+                       inputStatusView:inputStatusView];
 }
 
-- (instancetype)initWithMenu:(NSMenu *)menu startupItem:(NSMenuItem *)startupItem
+- (instancetype)initWithMenu:(NSMenu *)menu
+                 startupItem:(NSMenuItem *)startupItem
+              inputStatusView:(MLAudioInputStatusView *)inputStatusView
 {
     self = [super init];
     if (self)
     {
         _menu = menu;
         _startupItem = startupItem;
+        _inputStatusView = inputStatusView;
     }
 
     return self;
@@ -55,6 +63,17 @@
                                      keyEquivalent:@""];
     pauseItem.target = target;
     pauseItem.state = paused ? NSControlStateValueOn : NSControlStateValueOff;
+
+    [menu addItem:[NSMenuItem separatorItem]];
+
+    MLAudioInputStatusView *inputStatusView = [[MLAudioInputStatusView alloc] initWithTarget:target
+                                                                                volumeAction:@selector(inputVolumeSliderChanged:)
+                                                                                  muteAction:@selector(inputMuteCheckboxChanged:)];
+    NSMenuItem *inputStatusItem = [[NSMenuItem alloc] initWithTitle:@""
+                                                             action:nil
+                                                      keyEquivalent:@""];
+    inputStatusItem.view = inputStatusView;
+    [menu addItem:inputStatusItem];
 
     [menu addItem:[NSMenuItem separatorItem]];
 
@@ -138,7 +157,9 @@
                                     keyEquivalent:@""];
     quitItem.target = target;
 
-    return [MLStatusMenuBuildResult resultWithMenu:menu startupItem:startupItem];
+    return [MLStatusMenuBuildResult resultWithMenu:menu
+                                       startupItem:startupItem
+                                    inputStatusView:inputStatusView];
 }
 
 + (void)addSavedInputsSectionToMenu:(NSMenu *)menu

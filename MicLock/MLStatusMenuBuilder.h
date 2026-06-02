@@ -2,6 +2,7 @@
 #import <CoreAudio/CoreAudio.h>
 
 @class MLAudioDevice;
+@class MLAudioInputStatusView;
 @class MLFallbackSelection;
 
 @protocol MLStatusMenuActionHandling <NSObject>
@@ -13,6 +14,8 @@
 - (void)primaryDeviceSelected:(NSMenuItem *)item;
 - (void)fallbackDeviceSelected:(NSMenuItem *)item;
 - (void)clearFallbackDevice:(NSMenuItem *)item;
+- (void)inputVolumeSliderChanged:(NSSlider *)slider;
+- (void)inputMuteCheckboxChanged:(NSButton *)button;
 - (void)toggleStartupItem;
 - (void)terminate;
 
@@ -22,9 +25,14 @@
 
 @property (nonatomic, strong, readonly) NSMenu *menu;
 @property (nonatomic, strong, readonly) NSMenuItem *startupItem;
+@property (nonatomic, strong, readonly) MLAudioInputStatusView *inputStatusView;
 
-+ (instancetype)resultWithMenu:(NSMenu *)menu startupItem:(NSMenuItem *)startupItem;
-- (instancetype)initWithMenu:(NSMenu *)menu startupItem:(NSMenuItem *)startupItem NS_DESIGNATED_INITIALIZER;
++ (instancetype)resultWithMenu:(NSMenu *)menu
+                   startupItem:(NSMenuItem *)startupItem
+                inputStatusView:(MLAudioInputStatusView *)inputStatusView;
+- (instancetype)initWithMenu:(NSMenu *)menu
+                 startupItem:(NSMenuItem *)startupItem
+              inputStatusView:(MLAudioInputStatusView *)inputStatusView NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
