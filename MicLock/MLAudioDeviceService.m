@@ -30,6 +30,7 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
 @property (nonatomic, copy) AudioObjectPropertyListenerBlock deviceChangeListener;
 @property (nonatomic, copy) dispatch_block_t deviceChangeHandler;
 @property (nonatomic, assign) AudioDeviceID observedDeviceID;
+@property (nonatomic, assign) UInt32 observedChannelCount;
 
 @end
 
@@ -381,6 +382,8 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
         });
     };
 
+    self.observedChannelCount = [self inputChannelCountForDevice:deviceID];
+
     [self addDeviceListenerForSelector:kAudioDevicePropertyMute];
     [self addDeviceListenerForSelector:kAudioDevicePropertyVolumeScalar];
 }
@@ -401,15 +404,30 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
     self.deviceChangeHandler = nil;
     self.deviceListenerQueue = nil;
     self.observedDeviceID = kAudioDeviceUnknown;
+    self.observedChannelCount = 0;
 }
 
 - (void)addDeviceListenerForSelector:(AudioObjectPropertySelector)selector
 {
+    [self addDeviceListenerForSelector:selector element:kAudioObjectPropertyElementMain];
+    for (UInt32 channel = 1; channel <= self.observedChannelCount; channel++)
+    {
+        [self addDeviceListenerForSelector:selector element:channel];
+    }
+}
+
+- (void)addDeviceListenerForSelector:(AudioObjectPropertySelector)selector
+                             element:(AudioObjectPropertyElement)element
+{
     AudioObjectPropertyAddress address = {
         selector,
         kAudioObjectPropertyScopeInput,
-        kAudioObjectPropertyElementWildcard
+        element
     };
+    if (!AudioObjectHasProperty(self.observedDeviceID, &address))
+    {
+        return;
+    }
     OSStatus status = AudioObjectAddPropertyListenerBlock(self.observedDeviceID,
                                                           &address,
                                                           self.deviceListenerQueue,
@@ -419,11 +437,25 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
 
 - (void)removeDeviceListenerForSelector:(AudioObjectPropertySelector)selector
 {
+    [self removeDeviceListenerForSelector:selector element:kAudioObjectPropertyElementMain];
+    for (UInt32 channel = 1; channel <= self.observedChannelCount; channel++)
+    {
+        [self removeDeviceListenerForSelector:selector element:channel];
+    }
+}
+
+- (void)removeDeviceListenerForSelector:(AudioObjectPropertySelector)selector
+                                element:(AudioObjectPropertyElement)element
+{
     AudioObjectPropertyAddress address = {
         selector,
         kAudioObjectPropertyScopeInput,
-        kAudioObjectPropertyElementWildcard
+        element
     };
+    if (!AudioObjectHasProperty(self.observedDeviceID, &address))
+    {
+        return;
+    }
     OSStatus status = AudioObjectRemovePropertyListenerBlock(self.observedDeviceID,
                                                              &address,
                                                              self.deviceListenerQueue,
