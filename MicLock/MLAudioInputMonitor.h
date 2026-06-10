@@ -13,7 +13,7 @@
 @interface MLAudioInputMonitor : NSObject
 
 @property (nonatomic, weak) id<MLAudioInputMonitorDelegate> delegate;
-@property (nonatomic, assign, readonly, getter=isMonitoring) BOOL monitoring;
+@property (atomic, assign, readonly, getter=isMonitoring) BOOL monitoring;
 @property (nonatomic, copy, readonly) NSString *lastErrorMessage;
 
 - (AVAuthorizationStatus)microphoneAuthorizationStatus;

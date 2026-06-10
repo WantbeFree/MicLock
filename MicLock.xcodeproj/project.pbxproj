@@ -36,6 +36,7 @@
 		3333F8A8219874D600816A9F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		3333F8AB219874D600816A9F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/MainMenu.xib; sourceTree = "<group>"; };
 			3333F8AD219874D600816A9F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+			E61C10702EED000100A0B001 /* MicLock.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MicLock.entitlements; sourceTree = "<group>"; };
 			3333F8AE219874D600816A9F /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 			3333F8BB2198771700816A9F /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 			335B96732199C07000F6D77B /* GBLaunchAtLogin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GBLaunchAtLogin.h; sourceTree = "<group>"; };
@@ -132,6 +133,7 @@
 					3333F8A8219874D600816A9F /* Assets.xcassets */,
 				3333F8AA219874D600816A9F /* MainMenu.xib */,
 				3333F8AD219874D600816A9F /* Info.plist */,
+				E61C10702EED000100A0B001 /* MicLock.entitlements */,
 				3333F8AE219874D600816A9F /* main.m */,
 				335B967A2199C25A00F6D77B /* LICENSE */,
 				335B967B2199C25A00F6D77B /* README.md */,
@@ -300,7 +302,6 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "Mac Developer";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -359,7 +360,6 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
-				CODE_SIGN_IDENTITY = "Mac Developer";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -384,9 +384,11 @@
 			buildSettings = {
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MicLock/MicLock.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = KAX983KY52;
+				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				INFOPLIST_FILE = MicLock/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -404,9 +406,11 @@
 			buildSettings = {
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MicLock/MicLock.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				DEVELOPMENT_TEAM = KAX983KY52;
+				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				INFOPLIST_FILE = MicLock/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (

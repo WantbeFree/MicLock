@@ -2,6 +2,17 @@
 
 All notable changes to MicLock are documented here.
 
+## 1.7.0 - 2026-06-10
+
+- Added input health panel with live input level meter, volume slider, and mute toggle.
+- Fixed live mute and volume updates by registering CoreAudio listeners per channel element.
+- Fixed fallback menu selection persistence.
+- Enabled Hardened Runtime with the audio-input entitlement; release signing now applies entitlements so the level meter works in notarized builds.
+- Fixed admin-prompt cancellation detection on non-English systems (matches AppleScript error -128).
+- Fixed a data race in the input level monitor and skipped redundant RMS computation between meter updates.
+- Removed deprecated NSUserDefaults synchronize calls and a dead window outlet.
+- Developer ID signed and Apple notarized release.
+
 ## 1.6.7 - 2026-04-29
 
 - Fixed fallback selection normalization so menu selections persist instead of reverting to Disabled.

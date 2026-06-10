@@ -82,7 +82,6 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
 
 @interface AppDelegate () <MLStatusMenuActionHandling, MLAudioInputMonitorDelegate>
 
-@property (weak) IBOutlet NSWindow *window;
 @property (nonatomic, assign) BOOL paused;
 @property (nonatomic, assign) BOOL refreshInProgress;
 @property (nonatomic, assign) NSUInteger refreshRequestGeneration;
@@ -694,7 +693,10 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
             return;
         }
 
-        if ([message localizedCaseInsensitiveContainsString:@"User canceled"])
+        // AppleScript reports user cancellation as error -128. The textual
+        // message is localized, so match the stable numeric code as well.
+        if ([message containsString:@"-128"] ||
+            [message localizedCaseInsensitiveContainsString:@"User canceled"])
         {
             return;
         }

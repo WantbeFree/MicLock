@@ -33,9 +33,11 @@ static NSString *MLAudioInputMonitorStatusMessage(OSStatus status)
 
 @interface MLAudioInputMonitor ()
 
-@property (nonatomic, assign, readwrite, getter=isMonitoring) BOOL monitoring;
+// monitoring and audioQueue are read from the AudioQueue callback thread
+// while the main thread mutates them, so they must be atomic.
+@property (atomic, assign, readwrite, getter=isMonitoring) BOOL monitoring;
 @property (nonatomic, copy, readwrite) NSString *lastErrorMessage;
-@property (nonatomic, assign) AudioQueueRef audioQueue;
+@property (atomic, assign) AudioQueueRef audioQueue;
 @property (nonatomic, assign) AudioStreamBasicDescription audioFormat;
 @property (nonatomic, assign) CFTimeInterval lastLevelDispatchTime;
 
@@ -177,10 +179,12 @@ static void MLAudioInputQueueCallback(void *userData,
 
     AudioQueueRef queue = self.audioQueue;
     self.monitoring = NO;
-    self.audioQueue = NULL;
 
+    // Stop synchronously before clearing the property: once AudioQueueStop
+    // returns no more callbacks run, so nothing races the NULL write below.
     AudioQueueStop(queue, true);
     AudioQueueDispose(queue, true);
+    self.audioQueue = NULL;
 }
 
 - (AudioStreamBasicDescription)defaultAudioFormat
@@ -211,6 +215,13 @@ static void MLAudioInputQueueCallback(void *userData,
         return;
     }
 
+    CFTimeInterval now = CFAbsoluteTimeGetCurrent();
+    if (now - self.lastLevelDispatchTime < 0.05)
+    {
+        return;
+    }
+    self.lastLevelDispatchTime = now;
+
     Float32 *samples = (Float32 *)buffer->mAudioData;
     double sumSquares = 0.0;
     for (UInt32 index = 0; index < sampleCount; index++)
@@ -222,13 +233,6 @@ static void MLAudioInputQueueCallback(void *userData,
     double rms = sqrt(sumSquares / (double)sampleCount);
     Float32 decibels = 20.0f * log10f((Float32)MAX(rms, 0.0000001));
     CGFloat meterLevel = (CGFloat)MIN(1.0, MAX(0.0, ((double)decibels + 55.0) / 45.0));
-
-    CFTimeInterval now = CFAbsoluteTimeGetCurrent();
-    if (now - self.lastLevelDispatchTime < 0.05)
-    {
-        return;
-    }
-    self.lastLevelDispatchTime = now;
 
     dispatch_async(dispatch_get_main_queue(), ^
     {

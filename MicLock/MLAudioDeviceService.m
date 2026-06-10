@@ -349,7 +349,10 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
 
 - (void)startObservingDevice:(AudioDeviceID)deviceID changeHandler:(dispatch_block_t)changeHandler
 {
-    if (self.observedDeviceID == deviceID && self.deviceChangeListener != nil)
+    // Re-register listeners if the channel layout changed, since they are
+    // installed per channel element.
+    if (self.observedDeviceID == deviceID && self.deviceChangeListener != nil &&
+        [self inputChannelCountForDevice:deviceID] == self.observedChannelCount)
     {
         self.deviceChangeHandler = changeHandler;
         return;

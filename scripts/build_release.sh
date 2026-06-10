@@ -190,6 +190,7 @@ if [[ "$UNSIGNED" -eq 0 ]]; then
     --force \
     --options runtime \
     --timestamp \
+    --entitlements "$ROOT_DIR/MicLock/MicLock.entitlements" \
     --sign "$DEVELOPER_ID_APPLICATION" \
     "$PACKAGE_APP"
   /usr/bin/codesign --verify --deep --strict --verbose=2 "$PACKAGE_APP"

@@ -24,9 +24,11 @@ static NSString * const MLCoreAudioRestartScript = @"do shell script \"/usr/bin/
             return;
         }
 
+        // Drain the pipe before waiting: waiting first can deadlock if the
+        // child fills the pipe buffer and blocks on write.
+        NSData *outputData = [[outputPipe fileHandleForReading] readDataToEndOfFile];
         [task waitUntilExit];
 
-        NSData *outputData = [[outputPipe fileHandleForReading] readDataToEndOfFile];
         NSString *output = [[NSString alloc] initWithData:outputData encoding:NSUTF8StringEncoding] ?: @"";
         NSString *trimmedOutput = [output stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
 
