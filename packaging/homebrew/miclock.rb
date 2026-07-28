@@ -1,6 +1,6 @@
 cask "miclock" do
   version "1.7.1"
-  sha256 "f6722dc97f848a3ddc52339e3b2b3a3fa0d487132a7c99d44d396f79e44ce444"
+  sha256 "77d2ac266372426224bf60dff84ac51c5bdfd540f1832957e305d9636abd4d1f"
 
   url "https://github.com/WantbeFree/MicLock/releases/download/v#{version}/MicLock.#{version}-macOS-arm64.zip"
   name "MicLock"
