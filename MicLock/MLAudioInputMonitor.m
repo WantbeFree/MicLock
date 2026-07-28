@@ -5,7 +5,10 @@
 #import <string.h>
 
 static UInt32 const MLAudioInputMonitorBufferCount = 3;
-static UInt32 const MLAudioInputMonitorFramesPerBuffer = 2048;
+// 1024 frames is 23.2 ms at 44.1 kHz, so two buffers fit inside the 50 ms UI update
+// window below. At 2048 frames (46.4 ms) every second buffer was discarded by the
+// throttle and the meter ran at ~10.8 Hz instead of the intended 20 Hz.
+static UInt32 const MLAudioInputMonitorFramesPerBuffer = 1024;
 
 static NSString *MLAudioInputMonitorStatusMessage(OSStatus status)
 {

@@ -14,8 +14,7 @@ SKIP_NOTARIZATION=0
 usage() {
   echo "Usage: scripts/build_release.sh [--no-bump] [--unsigned] [--skip-notarization]" >&2
   echo "" >&2
-  echo "Signed releases require DEVELOPER_ID_APPLICATION plus either NOTARYTOOL_PROFILE" >&2
-  echo "or APPLE_ID, APPLE_TEAM_ID, and APPLE_APP_SPECIFIC_PASSWORD." >&2
+  echo "Signed releases require DEVELOPER_ID_APPLICATION and NOTARYTOOL_PROFILE." >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -77,12 +76,9 @@ require_signing_configuration() {
     return
   fi
 
-  if [[ -n "${NOTARYTOOL_PROFILE:-}" ]]; then
-    return
-  fi
-
-  if [[ -z "${APPLE_ID:-}" || -z "${APPLE_TEAM_ID:-}" || -z "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]]; then
-    echo "Missing notarization credentials. Set NOTARYTOOL_PROFILE or APPLE_ID, APPLE_TEAM_ID, and APPLE_APP_SPECIFIC_PASSWORD." >&2
+  if [[ -z "${NOTARYTOOL_PROFILE:-}" ]]; then
+    echo "Missing NOTARYTOOL_PROFILE. Create one once with:" >&2
+    echo "  xcrun notarytool store-credentials MicLock --apple-id <id> --team-id <team> --password <app-specific-password>" >&2
     exit 65
   fi
 }
@@ -93,15 +89,10 @@ create_zip() {
 }
 
 notarytool_submit() {
-  if [[ -n "${NOTARYTOOL_PROFILE:-}" ]]; then
-    /usr/bin/xcrun notarytool submit "$PACKAGE_ZIP" --keychain-profile "$NOTARYTOOL_PROFILE" --wait
-  else
-    /usr/bin/xcrun notarytool submit "$PACKAGE_ZIP" \
-      --apple-id "$APPLE_ID" \
-      --team-id "$APPLE_TEAM_ID" \
-      --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-      --wait
-  fi
+  # Only the keychain-profile path is supported: passing the app-specific password as a
+  # command-line argument would expose it to every process running as the same user for
+  # as long as --wait blocks.
+  /usr/bin/xcrun notarytool submit "$PACKAGE_ZIP" --keychain-profile "$NOTARYTOOL_PROFILE" --wait
 }
 
 require_signing_configuration
@@ -174,7 +165,9 @@ if [[ "$binary_arch" != *"arm64"* || "$binary_arch" == *"x86_64"* ]]; then
 fi
 
 mkdir -p "$PACKAGE_DIR"
-PACKAGE_APP="$PACKAGE_DIR/MicLock $next_version.app"
+# Ship as MicLock.app: a versioned bundle name would install side by side with the
+# previous copy instead of replacing it, leaving two instances fighting over the input.
+PACKAGE_APP="$PACKAGE_DIR/MicLock.app"
 if [[ "$UNSIGNED" -eq 1 ]]; then
   PACKAGE_ZIP="$PACKAGE_DIR/MicLock $next_version-macOS-arm64-unsigned.zip"
 else
@@ -184,6 +177,13 @@ fi
 rm -rf "$PACKAGE_APP" "$PACKAGE_ZIP"
 cp -R "$APP_PATH" "$PACKAGE_APP"
 /usr/bin/xattr -cr "$PACKAGE_APP"
+
+# Keep the debug symbols for this build; the next release run cleans derived data.
+PACKAGE_DSYM="$PACKAGE_DIR/MicLock $next_version.app.dSYM"
+rm -rf "$PACKAGE_DSYM"
+if [[ -d "$APP_PATH.dSYM" ]]; then
+  cp -R "$APP_PATH.dSYM" "$PACKAGE_DSYM"
+fi
 
 if [[ "$UNSIGNED" -eq 0 ]]; then
   /usr/bin/codesign \
@@ -209,6 +209,7 @@ echo "Release built successfully:"
 echo "  Version: $next_version (build $next_build)"
 echo "  App: $PACKAGE_APP"
 echo "  Zip: $PACKAGE_ZIP"
+echo "  SHA256: $(/usr/bin/shasum -a 256 "$PACKAGE_ZIP" | awk '{print $1}')"
 if [[ "$UNSIGNED" -eq 1 ]]; then
   echo "  Signing: unsigned local test package"
 elif [[ "$SKIP_NOTARIZATION" -eq 1 ]]; then

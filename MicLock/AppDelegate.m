@@ -104,6 +104,7 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
 @property (nonatomic, assign) BOOL lastPreferredInputAvailable;
 @property (nonatomic, assign) BOOL reviveInProgress;
 @property (nonatomic, assign) BOOL reopenMenuAfterRefresh;
+@property (nonatomic, assign) BOOL pendingMenuRebuild;
 @property (nonatomic, assign) BOOL statusMenuOpen;
 @property (nonatomic, assign) BOOL pendingMicrophoneAccessRequest;
 @property (nonatomic, assign) AudioDeviceID activeInputID;
@@ -470,6 +471,13 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
     self.lastActiveInputSignalDate = nil;
     [self.audioInputMonitor stopMonitoring];
     [self refreshActiveInputObservation];
+
+    if (self.pendingMenuRebuild)
+    {
+        // A refresh landed while the menu was open; rebuild it now that it is safe.
+        self.pendingMenuRebuild = NO;
+        [self scheduleAudioStateRefresh];
+    }
 }
 
 - (NSString *)preferredInputUIDByEnsuringSelection:(NSString *)preferredInputUID
@@ -497,6 +505,13 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
 {
     if (slot >= MLFallbackSelectionSlotCount)
     {
+        return;
+    }
+
+    if (uid.length > 0 && [uid isEqualToString:self.preferredInputUID])
+    {
+        // The primary already covers this device; a fallback slot pointing at it would
+        // never be reached.
         return;
     }
 
@@ -586,20 +601,32 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
     [self updatePreferredInputAvailabilityFromResult:result];
     [self updateActiveInputStateFromResult:result];
 
-    MLStatusMenuBuildResult *menuResult = [MLStatusMenuBuilder menuWithDevices:result.devices
-                                                         currentDefaultInputID:result.currentDefaultInputID
-                                                             preferredInputUID:self.preferredInputUID
-                                                   preferredInputDisplayName:self.preferredInputDisplayName
-                                                            fallbackSelections:self.fallbackSelections
-                                                                        paused:self.paused
-                                                                        target:self
-                                                                      delegate:self];
-    self.menu = menuResult.menu;
-    self.startupItem = menuResult.startupItem;
-    self.inputStatusView = menuResult.inputStatusView;
-    [self updateStartupItemState];
-    [self updateInputStatusView];
-    [self.statusItem setMenu:self.menu];
+    if (self.statusMenuOpen)
+    {
+        // Rebuilding now would swap out the status view the user is looking at, so every
+        // later update would land in an off-screen copy and the live meter would freeze.
+        // Keep the on-screen menu and rebuild once it closes.
+        self.pendingMenuRebuild = YES;
+        [self updateStartupItemState];
+        [self updateInputStatusView];
+    }
+    else
+    {
+        MLStatusMenuBuildResult *menuResult = [MLStatusMenuBuilder menuWithDevices:result.devices
+                                                             currentDefaultInputID:result.currentDefaultInputID
+                                                                 preferredInputUID:self.preferredInputUID
+                                                       preferredInputDisplayName:self.preferredInputDisplayName
+                                                                fallbackSelections:self.fallbackSelections
+                                                                            paused:self.paused
+                                                                            target:self
+                                                                          delegate:self];
+        self.menu = menuResult.menu;
+        self.startupItem = menuResult.startupItem;
+        self.inputStatusView = menuResult.inputStatusView;
+        [self updateStartupItemState];
+        [self updateInputStatusView];
+        [self.statusItem setMenu:self.menu];
+    }
 
     self.refreshInProgress = NO;
     [self refreshActiveInputObservation];

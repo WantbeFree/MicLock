@@ -26,7 +26,7 @@ MicLock is a tiny native AppKit menu bar app that keeps macOS from switching you
 
 ## 🚀 Download
 
-- Latest release: [MicLock 1.6.7](https://github.com/WantbeFree/MicLock/releases/tag/v1.6.7)
+- Latest release: [MicLock 1.7.1](https://github.com/WantbeFree/MicLock/releases/tag/v1.7.1)
 - Package: Developer ID signed and Apple notarized.
 - Requirements: macOS 13.0+, Apple Silicon Mac (`arm64`).
 - Install: download the zip, unzip it, move `MicLock.app` to `/Applications`, then launch it.
@@ -163,6 +163,7 @@ scripts/build_release.sh --unsigned
 - No microphone audio is recorded.
 - With the menu open, MicLock samples the active input locally to compute a live level meter. Samples are discarded immediately.
 - No network calls in the app.
+- MicLock never elevates on its own. `Revive Audio...` is the only privileged action, runs the fixed command `/usr/bin/killall coreaudiod`, and always asks for your administrator approval first.
 - No analytics, telemetry, ads, or tracking.
 - Settings are stored locally with `NSUserDefaults`.
 - MicLock reads CoreAudio device metadata, sets the default input device, and adjusts supported input volume controls.

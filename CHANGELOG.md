@@ -2,6 +2,18 @@
 
 All notable changes to MicLock are documented here.
 
+## 1.7.1 - 2026-07-28
+
+- Fixed first launch taking over the microphone you were already using. MicLock now keeps the current input and only overrides it when macOS has landed on a Bluetooth, AirPlay, or Continuity device.
+- Fixed the input health panel freezing when a device appeared or disappeared while the menu was open; the menu is now rebuilt after it closes.
+- Fixed the level meter running at roughly half its intended rate: the capture buffer no longer straddles the update interval.
+- Fallback slots can no longer be set to the device already chosen as Primary.
+- Release packages ship as `MicLock.app`, so an upgrade replaces the previous install instead of sitting beside it.
+- Notarization now requires a keychain profile; the app-specific password is never passed on the command line.
+- Release builds keep their dSYM and print the artifact SHA256.
+- Fixed the project's development team so the app builds from Xcode without signing errors.
+- Documented the `Revive Audio...` privileged command in SECURITY.md and the README.
+
 ## 1.7.0 - 2026-06-10
 
 - Added input health panel with live input level meter, volume slider, and mute toggle.

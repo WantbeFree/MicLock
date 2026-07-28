@@ -30,6 +30,16 @@
 + (MLAudioDevice *)initialPrimaryDeviceFromDevices:(NSArray<MLAudioDevice *> *)devices
                                     currentDefault:(AudioDeviceID)currentDefaultInputID
 {
+    // On first launch keep the input the user already chose, so installing MicLock never
+    // takes a working microphone away. Only override it when the current default is one of
+    // the transports MicLock exists to steer away from.
+    MLAudioDevice *currentDevice = [self deviceWithID:currentDefaultInputID inDevices:devices];
+    if (currentDevice != nil &&
+        ![self isAvoidedAutomaticFallbackTransportType:currentDevice.transportType])
+    {
+        return currentDevice;
+    }
+
     MLAudioDevice *initialDevice = [self builtInDeviceFromDevices:devices];
     if (initialDevice == nil)
     {

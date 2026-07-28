@@ -1,5 +1,5 @@
 cask "miclock" do
-  version "1.6.7"
+  version "1.7.1"
   sha256 "f6722dc97f848a3ddc52339e3b2b3a3fa0d487132a7c99d44d396f79e44ce444"
 
   url "https://github.com/WantbeFree/MicLock/releases/download/v#{version}/MicLock.#{version}-macOS-arm64.zip"
@@ -15,7 +15,7 @@ cask "miclock" do
   depends_on macos: ">= :ventura"
   depends_on arch: :arm64
 
-  app "MicLock #{version}.app", target: "MicLock.app"
+  app "MicLock.app"
 
   zap trash: [
     "~/Library/Preferences/com.wantbefree.miclock.plist",
