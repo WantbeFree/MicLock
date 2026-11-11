@@ -22,6 +22,7 @@
                muteAvailable:(BOOL)muteAvailable
                   monitoring:(BOOL)monitoring
          monitoringAvailable:(BOOL)monitoringAvailable
+         monitoringReapplied:(BOOL)monitoringReapplied
               levelAvailable:(BOOL)levelAvailable;
 
 @end

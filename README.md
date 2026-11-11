@@ -92,7 +92,7 @@ MicLock is device-agnostic. It works with CoreAudio input devices on Apple Silic
 - Watches CoreAudio default input changes.
 - Shows live input level and input volume while the menu is open.
 - Reflects the active input's live mute state and lets you mute/unmute it directly, reading state straight from CoreAudio (never cached) and updating in real time while the menu is open.
-- Keeps the headphone monitoring choice you make in the menu for each microphone that exposes CoreAudio play-through (for example Blue Yeti) and puts it back when the device reconnects, the Mac wakes, or something else changes it.
+- Keeps the headphone monitoring choice you click in the menu for each microphone that exposes CoreAudio play-through (for example Blue Yeti) and puts it back when the device reconnects, the Mac wakes, or something else changes it. A saved choice stays in force until you click `Monitoring` again or turn on `Pause`.
 - Debounces audio-device storms during Bluetooth reconnects.
 - Builds a fresh snapshot of available input devices.
 - Resolves input in this order: Primary → Fallback 1 → Fallback 2 → Fallback 3 → safe non-wireless input.
@@ -178,7 +178,7 @@ scripts/build_release.sh --unsigned
 | Mic is selected but silent | Open the menu, grant microphone access, and watch `Input level` while speaking |
 | Mic stays silent after reconnect | Open the menu and uncheck `Muted` (clears every CoreAudio mute element). On devices with their own hardware mute (e.g. Elgato Wave XLR top button) or phantom power, also check those — they are separate from CoreAudio |
 | Input volume slider is disabled | That device does not expose a CoreAudio input volume control |
-| Monitoring turns back on after replugging the mic | Set `Monitoring` once in the MicLock menu while that mic is active. MicLock remembers it for that device and reapplies it |
+| Monitoring turns back on after replugging the mic | Click `Monitoring` in the MicLock menu while that mic is active until it shows what you want. MicLock keeps only a choice clicked there, so if it already shows the right state, click it twice |
 | No `Monitoring` checkbox | The active input does not expose CoreAudio play-through |
 | Saved fallback is unavailable | Reconnect the device or choose a new fallback slot |
 | Menu bar icon not visible on macOS 26 | Check System Settings → Menu Bar and allow MicLock if macOS hides menu bar extras |

@@ -24,6 +24,6 @@ FOUNDATION_EXPORT NSUInteger const MLFallbackSelectionSlotCount;
 - (NSArray<MLFallbackSelection *> *)normalizedFallbackSelectionsFromValue:(id)value;
 
 - (NSDictionary<NSString *, NSNumber *> *)inputMonitoringByUID;
-- (void)setInputMonitoring:(BOOL)monitoring forUID:(NSString *)uid;
+- (void)setInputMonitoring:(NSNumber *)monitoring forUID:(NSString *)uid;
 
 @end

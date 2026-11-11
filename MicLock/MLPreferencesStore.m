@@ -128,7 +128,7 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
     return [monitoringByUID copy];
 }
 
-- (void)setInputMonitoring:(BOOL)monitoring forUID:(NSString *)uid
+- (void)setInputMonitoring:(NSNumber *)monitoring forUID:(NSString *)uid
 {
     if (uid.length == 0)
     {
@@ -136,7 +136,7 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
     }
 
     NSMutableDictionary<NSString *, NSNumber *> *monitoringByUID = [[self inputMonitoringByUID] mutableCopy];
-    monitoringByUID[uid] = @(monitoring);
+    monitoringByUID[uid] = (monitoring != nil) ? @(monitoring.boolValue) : nil;
     [self.defaults setObject:monitoringByUID forKey:MLInputMonitoringByUIDDefaultsKey];
 }
 

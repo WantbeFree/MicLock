@@ -2,11 +2,13 @@
 
 static CGFloat const MLInputStatusViewWidth = 380.0;
 static CGFloat const MLInputStatusViewHeight = 108.0;
+static NSString * const MLMonitoringReappliedToolTip = @"Hear this microphone in the headphones plugged into it. MicLock keeps the choice you click here after the device reconnects, the Mac wakes, or another app changes it.";
+static NSString * const MLMonitoringPausedToolTip = @"Hear this microphone in the headphones plugged into it. MicLock is paused: a click here is saved and applied now, and MicLock reapplies it again once you resume.";
 
 @interface MLAudioLevelMeterView : NSView
 
 @property (nonatomic, assign) CGFloat level;
-@property (nonatomic, assign) BOOL monitoringAvailable;
+@property (nonatomic, assign) BOOL levelAvailable;
 
 @end
 
@@ -17,7 +19,7 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
     self = [super initWithFrame:frame];
     if (self)
     {
-        _monitoringAvailable = YES;
+        _levelAvailable = YES;
         self.wantsLayer = YES;
     }
     return self;
@@ -29,9 +31,9 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
     [self setNeedsDisplay:YES];
 }
 
-- (void)setMonitoringAvailable:(BOOL)monitoringAvailable
+- (void)setLevelAvailable:(BOOL)levelAvailable
 {
-    _monitoringAvailable = monitoringAvailable;
+    _levelAvailable = levelAvailable;
     [self setNeedsDisplay:YES];
 }
 
@@ -42,7 +44,7 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
     static NSInteger const barCount = 16;
     CGFloat gap = 7.0;
     CGFloat barWidth = floor((NSWidth(self.bounds) - gap * (barCount - 1)) / barCount);
-    CGFloat activeBars = self.monitoringAvailable ? self.level * barCount : 0.0;
+    CGFloat activeBars = self.levelAvailable ? self.level * barCount : 0.0;
 
     for (NSInteger index = 0; index < barCount; index++)
     {
@@ -137,7 +139,6 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
     self.monitoringCheckbox = [NSButton checkboxWithTitle:@"Monitoring" target:target action:monitoringAction];
     self.monitoringCheckbox.controlSize = NSControlSizeSmall;
     self.monitoringCheckbox.font = [NSFont systemFontOfSize:11.0 weight:NSFontWeightRegular];
-    self.monitoringCheckbox.toolTip = @"Hear this microphone in the headphones plugged into it. MicLock keeps your choice after the device reconnects or the Mac wakes.";
     self.monitoringCheckbox.hidden = YES;
     [self addSubview:self.monitoringCheckbox];
 
@@ -214,11 +215,13 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
                muteAvailable:(BOOL)muteAvailable
                   monitoring:(BOOL)monitoring
          monitoringAvailable:(BOOL)monitoringAvailable
+         monitoringReapplied:(BOOL)monitoringReapplied
               levelAvailable:(BOOL)levelAvailable
 {
     NSString *safeDeviceName = deviceName.length > 0 ? deviceName : @"Current input";
-    self.deviceLabel.stringValue = [NSString stringWithFormat:@"Input health - %@", safeDeviceName];
-    self.deviceLabel.toolTip = safeDeviceName;
+    NSString *sectionTitle = [NSString stringWithFormat:@"Input health - %@", safeDeviceName];
+    self.deviceLabel.stringValue = monitoringAvailable ? safeDeviceName : sectionTitle;
+    self.deviceLabel.toolTip = sectionTitle;
     self.statusLabel.stringValue = statusText.length > 0 ? statusText : @"Speak to test";
 
     self.muteCheckbox.enabled = muteAvailable;
@@ -236,8 +239,9 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
         self.needsLayout = YES;
     }
     self.monitoringCheckbox.state = (monitoringAvailable && monitoring) ? NSControlStateValueOn : NSControlStateValueOff;
+    self.monitoringCheckbox.toolTip = monitoringReapplied ? MLMonitoringReappliedToolTip : MLMonitoringPausedToolTip;
 
-    self.levelMeterView.monitoringAvailable = levelAvailable;
+    self.levelMeterView.levelAvailable = levelAvailable;
     self.levelMeterView.level = level;
     self.levelMeterView.alphaValue = levelAvailable ? 1.0 : 0.45;
 }

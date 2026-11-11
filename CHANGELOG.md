@@ -4,7 +4,7 @@ All notable changes to MicLock are documented here.
 
 ## Unreleased
 
-- Added a `Monitoring` checkbox to the input health panel for microphones that expose CoreAudio play-through, such as Blue Yeti. MicLock remembers the choice per device and reapplies it after a reconnect, after wake, and when another app changes it. `Pause` stops reapplying.
+- Added a `Monitoring` checkbox to the input health panel for microphones that expose CoreAudio play-through, such as Blue Yeti. MicLock remembers the choice you click per device and reapplies it after a reconnect, after wake, and when another app changes it, backing off if something keeps changing it back. While paused, a click still applies and saves the choice, and resuming reapplies saved choices at once.
 
 ## 1.7.1 - 2026-07-28
 

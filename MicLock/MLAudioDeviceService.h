@@ -12,10 +12,14 @@
 - (BOOL)setInputVolume:(Float32)volume forDevice:(AudioDeviceID)deviceID;
 - (BOOL)getInputMuted:(BOOL *)muted forDevice:(AudioDeviceID)deviceID;
 - (BOOL)setInputMuted:(BOOL)muted forDevice:(AudioDeviceID)deviceID;
-- (BOOL)getInputMonitoring:(BOOL *)monitoring forDevice:(AudioDeviceID)deviceID;
-- (BOOL)setInputMonitoring:(BOOL)monitoring forDevice:(AudioDeviceID)deviceID;
+- (BOOL)getInputPlayThrough:(BOOL *)playThrough forDevice:(AudioDeviceID)deviceID;
+- (BOOL)setInputPlayThrough:(BOOL)playThrough forDevice:(AudioDeviceID)deviceID;
+- (NSArray<NSNumber *> *)inputPlayThroughDeviceIDsByReapplying:(NSDictionary<NSString *, NSNumber *> *)playThroughByUID
+                                                       toDevices:(NSArray<MLAudioDevice *> *)devices
+                                              retryReapplyAfter:(NSTimeInterval *)retryReapplyAfter;
 
-- (void)observeInputMonitoringOnDevices:(NSArray<NSNumber *> *)deviceIDs changeHandler:(dispatch_block_t)changeHandler;
+- (void)observeInputPlayThroughOnDevices:(NSArray<NSNumber *> *)deviceIDs;
+- (void)stopObservingInputPlayThrough;
 
 - (void)startMonitoringWithChangeHandler:(dispatch_block_t)changeHandler;
 - (void)stopMonitoring;
