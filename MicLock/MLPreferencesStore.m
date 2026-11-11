@@ -7,6 +7,7 @@ static NSString * const MLPausedDefaultsKey = @"paused";
 static NSString * const MLPreferredInputUIDDefaultsKey = @"preferredInputUID";
 static NSString * const MLPreferredInputDisplayNameDefaultsKey = @"preferredInputDisplayName";
 static NSString * const MLFallbackInputUIDsDefaultsKey = @"fallbackInputUIDs";
+static NSString * const MLInputMonitoringByUIDDefaultsKey = @"inputMonitoringByUID";
 static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
 
 @interface MLPreferencesStore ()
@@ -110,6 +111,33 @@ static NSString * const MLLegacyDefaultsSuiteName = @"com.milgra.asqf";
     }
 
     return [selections copy];
+}
+
+- (NSDictionary<NSString *, NSNumber *> *)inputMonitoringByUID
+{
+    NSDictionary *storedValue = [self.defaults dictionaryForKey:MLInputMonitoringByUIDDefaultsKey];
+    NSMutableDictionary<NSString *, NSNumber *> *monitoringByUID = [NSMutableDictionary dictionary];
+    [storedValue enumerateKeysAndObjectsUsingBlock:^(id uid, id monitoring, BOOL *stop)
+    {
+        (void)stop;
+        if ([uid isKindOfClass:[NSString class]] && [uid length] > 0 && [monitoring isKindOfClass:[NSNumber class]])
+        {
+            monitoringByUID[uid] = @([monitoring boolValue]);
+        }
+    }];
+    return [monitoringByUID copy];
+}
+
+- (void)setInputMonitoring:(BOOL)monitoring forUID:(NSString *)uid
+{
+    if (uid.length == 0)
+    {
+        return;
+    }
+
+    NSMutableDictionary<NSString *, NSNumber *> *monitoringByUID = [[self inputMonitoringByUID] mutableCopy];
+    monitoringByUID[uid] = @(monitoring);
+    [self.defaults setObject:monitoringByUID forKey:MLInputMonitoringByUIDDefaultsKey];
 }
 
 - (void)migrateLegacyDefaultsIfNeeded

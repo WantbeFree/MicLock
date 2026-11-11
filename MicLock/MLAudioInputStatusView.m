@@ -71,6 +71,7 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
 @property (nonatomic, strong) NSImageView *highVolumeIcon;
 @property (nonatomic, strong, readwrite) NSSlider *volumeSlider;
 @property (nonatomic, strong, readwrite) NSButton *muteCheckbox;
+@property (nonatomic, strong, readwrite) NSButton *monitoringCheckbox;
 @property (nonatomic, strong) MLAudioLevelMeterView *levelMeterView;
 
 @end
@@ -80,16 +81,23 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
 - (instancetype)initWithTarget:(id)target
                   volumeAction:(SEL)volumeAction
                     muteAction:(SEL)muteAction
+              monitoringAction:(SEL)monitoringAction
 {
     self = [super initWithFrame:NSMakeRect(0.0, 0.0, MLInputStatusViewWidth, MLInputStatusViewHeight)];
     if (self)
     {
-        [self buildSubviewsWithTarget:target volumeAction:volumeAction muteAction:muteAction];
+        [self buildSubviewsWithTarget:target
+                         volumeAction:volumeAction
+                           muteAction:muteAction
+                     monitoringAction:monitoringAction];
     }
     return self;
 }
 
-- (void)buildSubviewsWithTarget:(id)target volumeAction:(SEL)volumeAction muteAction:(SEL)muteAction
+- (void)buildSubviewsWithTarget:(id)target
+                   volumeAction:(SEL)volumeAction
+                     muteAction:(SEL)muteAction
+               monitoringAction:(SEL)monitoringAction
 {
     self.deviceLabel = [self labelWithString:@"Input health" font:[NSFont systemFontOfSize:11.0 weight:NSFontWeightMedium]];
     self.deviceLabel.textColor = [NSColor secondaryLabelColor];
@@ -125,6 +133,13 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
     self.muteCheckbox.font = [NSFont systemFontOfSize:11.0 weight:NSFontWeightRegular];
     self.muteCheckbox.toolTip = @"Reflects the device's live mute state. Toggle to mute or unmute the active input directly.";
     [self addSubview:self.muteCheckbox];
+
+    self.monitoringCheckbox = [NSButton checkboxWithTitle:@"Monitoring" target:target action:monitoringAction];
+    self.monitoringCheckbox.controlSize = NSControlSizeSmall;
+    self.monitoringCheckbox.font = [NSFont systemFontOfSize:11.0 weight:NSFontWeightRegular];
+    self.monitoringCheckbox.toolTip = @"Hear this microphone in the headphones plugged into it. MicLock keeps your choice after the device reconnects or the Mac wakes.";
+    self.monitoringCheckbox.hidden = YES;
+    [self addSubview:self.monitoringCheckbox];
 
     self.levelMeterView = [[MLAudioLevelMeterView alloc] initWithFrame:NSZeroRect];
     [self addSubview:self.levelMeterView];
@@ -169,7 +184,16 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
     [self.muteCheckbox sizeToFit];
     muteWidth = MAX(muteWidth, NSWidth(self.muteCheckbox.frame));
     self.muteCheckbox.frame = NSMakeRect(NSWidth(self.bounds) - right - muteWidth, 84.0, muteWidth, 18.0);
-    self.deviceLabel.frame = NSMakeRect(left, 86.0, NSWidth(self.bounds) - left - right - muteWidth - 8.0, 16.0);
+
+    CGFloat checkboxesLeft = NSMinX(self.muteCheckbox.frame);
+    if (!self.monitoringCheckbox.hidden)
+    {
+        [self.monitoringCheckbox sizeToFit];
+        CGFloat monitoringWidth = NSWidth(self.monitoringCheckbox.frame);
+        checkboxesLeft -= monitoringWidth + 8.0;
+        self.monitoringCheckbox.frame = NSMakeRect(checkboxesLeft, 84.0, monitoringWidth, 18.0);
+    }
+    self.deviceLabel.frame = NSMakeRect(left, 86.0, checkboxesLeft - left - 8.0, 16.0);
 
     self.volumeLabel.frame = NSMakeRect(left, 57.0, labelWidth, 24.0);
     self.lowVolumeIcon.frame = NSMakeRect(controlLeft, 60.0, iconSize, iconSize);
@@ -188,10 +212,13 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
              volumeAvailable:(BOOL)volumeAvailable
                        muted:(BOOL)muted
                muteAvailable:(BOOL)muteAvailable
+                  monitoring:(BOOL)monitoring
          monitoringAvailable:(BOOL)monitoringAvailable
+              levelAvailable:(BOOL)levelAvailable
 {
     NSString *safeDeviceName = deviceName.length > 0 ? deviceName : @"Current input";
     self.deviceLabel.stringValue = [NSString stringWithFormat:@"Input health - %@", safeDeviceName];
+    self.deviceLabel.toolTip = safeDeviceName;
     self.statusLabel.stringValue = statusText.length > 0 ? statusText : @"Speak to test";
 
     self.muteCheckbox.enabled = muteAvailable;
@@ -203,9 +230,16 @@ static CGFloat const MLInputStatusViewHeight = 108.0;
     self.lowVolumeIcon.alphaValue = volumeAvailable ? 1.0 : 0.35;
     self.highVolumeIcon.alphaValue = volumeAvailable ? 1.0 : 0.35;
 
-    self.levelMeterView.monitoringAvailable = monitoringAvailable;
+    if (self.monitoringCheckbox.hidden == monitoringAvailable)
+    {
+        self.monitoringCheckbox.hidden = !monitoringAvailable;
+        self.needsLayout = YES;
+    }
+    self.monitoringCheckbox.state = (monitoringAvailable && monitoring) ? NSControlStateValueOn : NSControlStateValueOff;
+
+    self.levelMeterView.monitoringAvailable = levelAvailable;
     self.levelMeterView.level = level;
-    self.levelMeterView.alphaValue = monitoringAvailable ? 1.0 : 0.45;
+    self.levelMeterView.alphaValue = levelAvailable ? 1.0 : 0.45;
 }
 
 @end

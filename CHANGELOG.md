@@ -2,6 +2,10 @@
 
 All notable changes to MicLock are documented here.
 
+## Unreleased
+
+- Added a `Monitoring` checkbox to the input health panel for microphones that expose CoreAudio play-through, such as Blue Yeti. MicLock remembers the choice per device and reapplies it after a reconnect, after wake, and when another app changes it. `Pause` stops reapplying.
+
 ## 1.7.1 - 2026-07-28
 
 - Fixed first launch taking over the microphone you were already using. MicLock now keeps the current input and only overrides it when macOS has landed on a Bluetooth, AirPlay, or Continuity device.

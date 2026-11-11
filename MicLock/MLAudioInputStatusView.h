@@ -4,10 +4,12 @@
 
 @property (nonatomic, strong, readonly) NSSlider *volumeSlider;
 @property (nonatomic, strong, readonly) NSButton *muteCheckbox;
+@property (nonatomic, strong, readonly) NSButton *monitoringCheckbox;
 
 - (instancetype)initWithTarget:(id)target
                   volumeAction:(SEL)volumeAction
-                    muteAction:(SEL)muteAction NS_DESIGNATED_INITIALIZER;
+                    muteAction:(SEL)muteAction
+              monitoringAction:(SEL)monitoringAction NS_DESIGNATED_INITIALIZER;
 - (instancetype)initWithFrame:(NSRect)frame NS_UNAVAILABLE;
 - (instancetype)initWithCoder:(NSCoder *)coder NS_UNAVAILABLE;
 
@@ -18,6 +20,8 @@
              volumeAvailable:(BOOL)volumeAvailable
                        muted:(BOOL)muted
                muteAvailable:(BOOL)muteAvailable
-         monitoringAvailable:(BOOL)monitoringAvailable;
+                  monitoring:(BOOL)monitoring
+         monitoringAvailable:(BOOL)monitoringAvailable
+              levelAvailable:(BOOL)levelAvailable;
 
 @end

@@ -92,6 +92,7 @@ MicLock is device-agnostic. It works with CoreAudio input devices on Apple Silic
 - Watches CoreAudio default input changes.
 - Shows live input level and input volume while the menu is open.
 - Reflects the active input's live mute state and lets you mute/unmute it directly, reading state straight from CoreAudio (never cached) and updating in real time while the menu is open.
+- Keeps the headphone monitoring choice you make in the menu for each microphone that exposes CoreAudio play-through (for example Blue Yeti) and puts it back when the device reconnects, the Mac wakes, or something else changes it.
 - Debounces audio-device storms during Bluetooth reconnects.
 - Builds a fresh snapshot of available input devices.
 - Resolves input in this order: Primary → Fallback 1 → Fallback 2 → Fallback 3 → safe non-wireless input.
@@ -104,7 +105,7 @@ MicLock is device-agnostic. It works with CoreAudio input devices on Apple Silic
 | Menu section | Purpose |
 | --- | --- |
 | Saved inputs | Quick list of Primary and Fallback devices, with checkmark on active input |
-| Input health | Live input level, the CoreAudio input volume control macOS exposes, and a `Muted` checkbox reflecting/toggling the device's live mute |
+| Input health | Live input level, the CoreAudio input volume control macOS exposes, a `Muted` checkbox reflecting/toggling the device's live mute, and a `Monitoring` checkbox on microphones with a headphone output |
 | Refresh Devices | Re-enumerate CoreAudio input devices |
 | Revive Audio... | Restart CoreAudio when USB/dock audio disappears after sleep |
 | Input Selection | Choose Primary and three fallback slots |
@@ -166,7 +167,7 @@ scripts/build_release.sh --unsigned
 - MicLock never elevates on its own. `Revive Audio...` is the only privileged action, runs the fixed command `/usr/bin/killall coreaudiod`, and always asks for your administrator approval first.
 - No analytics, telemetry, ads, or tracking.
 - Settings are stored locally with `NSUserDefaults`.
-- MicLock reads CoreAudio device metadata, sets the default input device, and adjusts supported input volume controls.
+- MicLock reads CoreAudio device metadata, sets the default input device, and adjusts supported input volume and monitoring controls.
 
 ## 🧯 Troubleshooting
 
@@ -177,6 +178,8 @@ scripts/build_release.sh --unsigned
 | Mic is selected but silent | Open the menu, grant microphone access, and watch `Input level` while speaking |
 | Mic stays silent after reconnect | Open the menu and uncheck `Muted` (clears every CoreAudio mute element). On devices with their own hardware mute (e.g. Elgato Wave XLR top button) or phantom power, also check those — they are separate from CoreAudio |
 | Input volume slider is disabled | That device does not expose a CoreAudio input volume control |
+| Monitoring turns back on after replugging the mic | Set `Monitoring` once in the MicLock menu while that mic is active. MicLock remembers it for that device and reapplies it |
+| No `Monitoring` checkbox | The active input does not expose CoreAudio play-through |
 | Saved fallback is unavailable | Reconnect the device or choose a new fallback slot |
 | Menu bar icon not visible on macOS 26 | Check System Settings → Menu Bar and allow MicLock if macOS hides menu bar extras |
 | App will not open | Download the latest notarized release from GitHub Releases |

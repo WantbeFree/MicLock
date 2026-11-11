@@ -32,6 +32,11 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
 @property (nonatomic, assign) AudioDeviceID observedDeviceID;
 @property (nonatomic, assign) UInt32 observedChannelCount;
 
+@property (nonatomic, strong) dispatch_queue_t monitoringListenerQueue;
+@property (nonatomic, copy) AudioObjectPropertyListenerBlock monitoringChangeListener;
+@property (nonatomic, copy) dispatch_block_t monitoringChangeHandler;
+@property (nonatomic, copy) NSSet<NSNumber *> *monitoringObservedDeviceIDs;
+
 @end
 
 @implementation MLAudioDeviceService
@@ -280,6 +285,133 @@ static void MLLogAudioStatus(NSString *operation, OSStatus status)
     }
 
     return didSetAnyElement;
+}
+
+- (BOOL)getInputMonitoring:(BOOL *)monitoring forDevice:(AudioDeviceID)deviceID
+{
+    AudioObjectPropertyAddress address = MLAudioAddress(kAudioDevicePropertyPlayThru,
+                                                        kAudioObjectPropertyScopeInput);
+    if (monitoring == NULL || ![self deviceHasSettableProperty:address device:deviceID])
+    {
+        return NO;
+    }
+
+    UInt32 value = 0;
+    UInt32 dataSize = sizeof(value);
+    OSStatus status = AudioObjectGetPropertyData(deviceID,
+                                                 &address,
+                                                 0,
+                                                 NULL,
+                                                 &dataSize,
+                                                 &value);
+    if (status != noErr)
+    {
+        return NO;
+    }
+
+    *monitoring = (value != 0);
+    return YES;
+}
+
+- (BOOL)setInputMonitoring:(BOOL)monitoring forDevice:(AudioDeviceID)deviceID
+{
+    AudioObjectPropertyAddress address = MLAudioAddress(kAudioDevicePropertyPlayThru,
+                                                        kAudioObjectPropertyScopeInput);
+    if (![self deviceHasSettableProperty:address device:deviceID])
+    {
+        return NO;
+    }
+
+    UInt32 value = monitoring ? 1 : 0;
+    OSStatus status = AudioObjectSetPropertyData(deviceID,
+                                                 &address,
+                                                 0,
+                                                 NULL,
+                                                 sizeof(value),
+                                                 &value);
+    if (status != noErr)
+    {
+        MLLogAudioStatus(@"AudioObjectSetPropertyData(inputMonitoring)", status);
+        return NO;
+    }
+
+    return YES;
+}
+
+- (BOOL)deviceHasSettableProperty:(AudioObjectPropertyAddress)address device:(AudioDeviceID)deviceID
+{
+    if (deviceID == kAudioDeviceUnknown || !AudioObjectHasProperty(deviceID, &address))
+    {
+        return NO;
+    }
+
+    Boolean settable = false;
+    OSStatus status = AudioObjectIsPropertySettable(deviceID, &address, &settable);
+    return status == noErr && settable;
+}
+
+- (void)observeInputMonitoringOnDevices:(NSArray<NSNumber *> *)deviceIDs changeHandler:(dispatch_block_t)changeHandler
+{
+    NSSet<NSNumber *> *requestedDeviceIDs = [NSSet setWithArray:deviceIDs ?: @[]];
+    self.monitoringChangeHandler = requestedDeviceIDs.count > 0 ? changeHandler : nil;
+
+    if (self.monitoringChangeListener == nil)
+    {
+        self.monitoringListenerQueue = dispatch_queue_create("com.miclock.monitoring-listener", DISPATCH_QUEUE_SERIAL);
+
+        __weak typeof(self) weakSelf = self;
+        self.monitoringChangeListener = ^(UInt32 inNumberAddresses, const AudioObjectPropertyAddress *inAddresses)
+        {
+            (void)inNumberAddresses;
+            (void)inAddresses;
+
+            dispatch_async(dispatch_get_main_queue(), ^
+            {
+                MLAudioDeviceService *strongSelf = weakSelf;
+                if (strongSelf.monitoringChangeHandler != nil)
+                {
+                    strongSelf.monitoringChangeHandler();
+                }
+            });
+        };
+    }
+
+    NSSet<NSNumber *> *observedDeviceIDs = self.monitoringObservedDeviceIDs ?: [NSSet set];
+    AudioObjectPropertyAddress playThruInAnyScopeAddress = MLAudioAddress(kAudioDevicePropertyPlayThru,
+                                                                          kAudioObjectPropertyScopeWildcard);
+
+    for (NSNumber *deviceID in observedDeviceIDs)
+    {
+        if (![requestedDeviceIDs containsObject:deviceID])
+        {
+            AudioObjectRemovePropertyListenerBlock(deviceID.unsignedIntValue,
+                                                   &playThruInAnyScopeAddress,
+                                                   self.monitoringListenerQueue,
+                                                   self.monitoringChangeListener);
+        }
+    }
+
+    NSMutableSet<NSNumber *> *nowObservedDeviceIDs = [NSMutableSet set];
+    for (NSNumber *deviceID in requestedDeviceIDs)
+    {
+        if ([observedDeviceIDs containsObject:deviceID])
+        {
+            [nowObservedDeviceIDs addObject:deviceID];
+            continue;
+        }
+
+        OSStatus status = AudioObjectAddPropertyListenerBlock(deviceID.unsignedIntValue,
+                                                              &playThruInAnyScopeAddress,
+                                                              self.monitoringListenerQueue,
+                                                              self.monitoringChangeListener);
+        MLLogAudioStatus(@"AudioObjectAddPropertyListenerBlock(inputMonitoring)", status);
+        if (status == noErr)
+        {
+            [nowObservedDeviceIDs addObject:deviceID];
+        }
+    }
+
+    self.monitoringObservedDeviceIDs = nowObservedDeviceIDs;
 }
 
 - (void)startMonitoringWithChangeHandler:(dispatch_block_t)changeHandler

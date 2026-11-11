@@ -16,6 +16,7 @@
 - (void)clearFallbackDevice:(NSMenuItem *)item;
 - (void)inputVolumeSliderChanged:(NSSlider *)slider;
 - (void)inputMuteCheckboxChanged:(NSButton *)button;
+- (void)inputMonitoringCheckboxChanged:(NSButton *)button;
 - (void)toggleStartupItem;
 - (void)terminate;
 
