@@ -68,7 +68,8 @@
 
     MLAudioInputStatusView *inputStatusView = [[MLAudioInputStatusView alloc] initWithTarget:target
                                                                                 volumeAction:@selector(inputVolumeSliderChanged:)
-                                                                                  muteAction:@selector(inputMuteCheckboxChanged:)];
+                                                                                  muteAction:@selector(inputMuteCheckboxChanged:)
+                                                                            monitoringAction:@selector(inputMonitoringCheckboxChanged:)];
     NSMenuItem *inputStatusItem = [[NSMenuItem alloc] initWithTitle:@""
                                                              action:nil
                                                       keyEquivalent:@""];

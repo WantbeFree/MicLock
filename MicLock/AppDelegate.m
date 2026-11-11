@@ -26,18 +26,24 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
 @property (nonatomic, copy, readonly) NSArray<MLFallbackSelection *> *fallbackSelections;
 @property (nonatomic, strong, readonly) MLInputResolution *resolution;
 @property (nonatomic, assign, readonly) AudioDeviceID currentDefaultInputID;
+@property (nonatomic, copy, readonly) NSArray<NSNumber *> *playThroughDeviceIDs;
+@property (nonatomic, assign, readonly) NSTimeInterval playThroughRetryDelay;
 
 + (instancetype)resultWithDevices:(NSArray<MLAudioDevice *> *)devices
                  preferredInputUID:(NSString *)preferredInputUID
                 fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
                          resolution:(MLInputResolution *)resolution
-              currentDefaultInputID:(AudioDeviceID)currentDefaultInputID;
+              currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+                playThroughDeviceIDs:(NSArray<NSNumber *> *)playThroughDeviceIDs
+              playThroughRetryDelay:(NSTimeInterval)playThroughRetryDelay;
 
 - (instancetype)initWithDevices:(NSArray<MLAudioDevice *> *)devices
                preferredInputUID:(NSString *)preferredInputUID
               fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
                        resolution:(MLInputResolution *)resolution
-            currentDefaultInputID:(AudioDeviceID)currentDefaultInputID NS_DESIGNATED_INITIALIZER;
+            currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+              playThroughDeviceIDs:(NSArray<NSNumber *> *)playThroughDeviceIDs
+            playThroughRetryDelay:(NSTimeInterval)playThroughRetryDelay NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)init NS_UNAVAILABLE;
 + (instancetype)new NS_UNAVAILABLE;
@@ -51,12 +57,16 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
                 fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
                          resolution:(MLInputResolution *)resolution
               currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+                playThroughDeviceIDs:(NSArray<NSNumber *> *)playThroughDeviceIDs
+              playThroughRetryDelay:(NSTimeInterval)playThroughRetryDelay
 {
     return [[self alloc] initWithDevices:devices
                        preferredInputUID:preferredInputUID
                       fallbackSelections:fallbackSelections
                                resolution:resolution
-                    currentDefaultInputID:currentDefaultInputID];
+                    currentDefaultInputID:currentDefaultInputID
+                      playThroughDeviceIDs:playThroughDeviceIDs
+                    playThroughRetryDelay:playThroughRetryDelay];
 }
 
 - (instancetype)initWithDevices:(NSArray<MLAudioDevice *> *)devices
@@ -64,6 +74,8 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
               fallbackSelections:(NSArray<MLFallbackSelection *> *)fallbackSelections
                        resolution:(MLInputResolution *)resolution
             currentDefaultInputID:(AudioDeviceID)currentDefaultInputID
+              playThroughDeviceIDs:(NSArray<NSNumber *> *)playThroughDeviceIDs
+            playThroughRetryDelay:(NSTimeInterval)playThroughRetryDelay
 {
     self = [super init];
     if (self)
@@ -73,6 +85,8 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
         _fallbackSelections = [fallbackSelections copy] ?: @[];
         _resolution = resolution;
         _currentDefaultInputID = currentDefaultInputID;
+        _playThroughDeviceIDs = [playThroughDeviceIDs copy] ?: @[];
+        _playThroughRetryDelay = playThroughRetryDelay;
     }
 
     return self;
@@ -108,12 +122,16 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
 @property (nonatomic, assign) BOOL statusMenuOpen;
 @property (nonatomic, assign) BOOL pendingMicrophoneAccessRequest;
 @property (nonatomic, assign) AudioDeviceID activeInputID;
+@property (nonatomic, copy) NSString *activeInputUID;
 @property (nonatomic, copy) NSString *activeInputDisplayName;
 @property (nonatomic, assign) CGFloat activeInputLevel;
 @property (nonatomic, assign) Float32 activeInputVolume;
 @property (nonatomic, assign) BOOL activeInputVolumeAvailable;
 @property (nonatomic, assign) BOOL activeInputMuted;
 @property (nonatomic, assign) BOOL activeInputMuteAvailable;
+@property (nonatomic, assign) BOOL activeInputMonitoring;
+@property (nonatomic, assign) BOOL activeInputMonitoringAvailable;
+@property (nonatomic, assign) NSUInteger pendingInputMonitoringWriteCount;
 @property (nonatomic, copy) NSString *activeInputMonitorErrorMessage;
 @property (nonatomic, strong) NSDate *lastActiveInputSignalDate;
 
@@ -238,6 +256,7 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
     NSString *manualOverrideInputUID = [self.manualOverrideInputUID copy] ?: @"";
     NSArray<MLFallbackSelection *> *fallbackSelections = [[self.preferencesStore normalizedFallbackSelectionsFromValue:self.fallbackSelections] copy];
     MLAudioDeviceService *audioDeviceService = self.audioDeviceService;
+    NSDictionary<NSString *, NSNumber *> *inputMonitoringByUID = paused ? @{} : [self.preferencesStore inputMonitoringByUID];
 
     __weak typeof(self) weakSelf = self;
     dispatch_async(self.refreshQueue, ^
@@ -291,11 +310,18 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
             }
         }
 
+        NSTimeInterval playThroughRetryDelay = 0.0;
+        NSArray<NSNumber *> *playThroughDeviceIDs = [audioDeviceService inputPlayThroughDeviceIDsByReapplying:inputMonitoringByUID
+                                                                                                     toDevices:devices
+                                                                                            retryReapplyAfter:&playThroughRetryDelay];
+
         MLAudioRefreshResult *result = [MLAudioRefreshResult resultWithDevices:devices
                                                              preferredInputUID:resolvedPreferredInputUID
                                                             fallbackSelections:resolvedFallbackSelections
                                                                      resolution:resolution
-                                                          currentDefaultInputID:currentDefaultInputID];
+                                                          currentDefaultInputID:currentDefaultInputID
+                                                            playThroughDeviceIDs:playThroughDeviceIDs
+                                                          playThroughRetryDelay:playThroughRetryDelay];
 
         dispatch_async(dispatch_get_main_queue(), ^
         {
@@ -458,6 +484,7 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
     [self updateStartupItemState];
     [self reloadActiveInputVolume];
     [self reloadActiveInputMuteState];
+    [self reloadActiveInputMonitoring];
     [self updateInputStatusView];
     [self refreshActiveInputObservation];
     [self startAudioInputMonitoringForOpenMenu];
@@ -598,6 +625,11 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
         self.manualOverrideInputUID = nil;
     }
 
+    [self.audioDeviceService observeInputPlayThroughOnDevices:result.playThroughDeviceIDs];
+    if (result.playThroughRetryDelay > 0.0)
+    {
+        [self scheduleAudioStateRefreshAfterDelay:result.playThroughRetryDelay];
+    }
     [self updatePreferredInputAvailabilityFromResult:result];
     [self updateActiveInputStateFromResult:result];
 
@@ -686,6 +718,49 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
 
     [self reloadActiveInputMuteState];
     [self updateInputStatusView];
+}
+
+- (void)inputMonitoringCheckboxChanged:(NSButton *)button
+{
+    if (self.activeInputID == kAudioDeviceUnknown || self.activeInputUID.length == 0)
+    {
+        return;
+    }
+
+    BOOL requestedMonitoring = (button.state == NSControlStateValueOn);
+    AudioDeviceID deviceID = self.activeInputID;
+    NSString *uid = [self.activeInputUID copy];
+    NSNumber *previousMonitoring = [self.preferencesStore inputMonitoringByUID][uid];
+    MLAudioDeviceService *audioDeviceService = self.audioDeviceService;
+
+    [self.preferencesStore setInputMonitoring:@(requestedMonitoring) forUID:uid];
+    self.activeInputMonitoring = requestedMonitoring;
+    self.pendingInputMonitoringWriteCount += 1;
+    [self updateInputStatusView];
+
+    __weak typeof(self) weakSelf = self;
+    dispatch_async(self.refreshQueue, ^
+    {
+        BOOL didSetMonitoring = [audioDeviceService setInputPlayThrough:requestedMonitoring forDevice:deviceID];
+
+        dispatch_async(dispatch_get_main_queue(), ^
+        {
+            AppDelegate *strongSelf = weakSelf;
+            if (strongSelf == nil)
+            {
+                return;
+            }
+
+            if (!didSetMonitoring)
+            {
+                [strongSelf.preferencesStore setInputMonitoring:previousMonitoring forUID:uid];
+            }
+
+            strongSelf.pendingInputMonitoringWriteCount -= 1;
+            [strongSelf reloadActiveInputMonitoring];
+            [strongSelf updateInputStatusView];
+        });
+    });
 }
 
 - (void)reviveAudio:(NSMenuItem *)item
@@ -886,9 +961,11 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
     }
 
     self.activeInputID = activeInputID;
+    self.activeInputUID = activeDevice.uid ?: @"";
     self.activeInputDisplayName = activeDevice.displayName ?: @"Current input";
     [self reloadActiveInputVolume];
     [self reloadActiveInputMuteState];
+    [self reloadActiveInputMonitoring];
 }
 
 - (void)reloadActiveInputVolume
@@ -933,6 +1010,25 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
     self.activeInputMuteAvailable = NO;
 }
 
+- (void)reloadActiveInputMonitoring
+{
+    if (self.pendingInputMonitoringWriteCount > 0)
+    {
+        return;
+    }
+
+    BOOL monitoring = NO;
+    if ([self.audioDeviceService getInputPlayThrough:&monitoring forDevice:self.activeInputID])
+    {
+        self.activeInputMonitoring = monitoring;
+        self.activeInputMonitoringAvailable = YES;
+        return;
+    }
+
+    self.activeInputMonitoring = NO;
+    self.activeInputMonitoringAvailable = NO;
+}
+
 - (void)refreshActiveInputObservation
 {
     if (self.statusMenuOpen && self.activeInputID != kAudioDeviceUnknown)
@@ -948,6 +1044,7 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
 
             [strongSelf reloadActiveInputVolume];
             [strongSelf reloadActiveInputMuteState];
+            [strongSelf reloadActiveInputMonitoring];
             [strongSelf updateInputStatusView];
         }];
         return;
@@ -1026,9 +1123,9 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
     }
 
     AVAuthorizationStatus authorizationStatus = [self.audioInputMonitor microphoneAuthorizationStatus];
-    BOOL monitoringAvailable = (authorizationStatus == AVAuthorizationStatusAuthorized &&
-                                self.activeInputMonitorErrorMessage.length == 0 &&
-                                self.statusMenuOpen);
+    BOOL levelAvailable = (authorizationStatus == AVAuthorizationStatusAuthorized &&
+                           self.activeInputMonitorErrorMessage.length == 0 &&
+                           self.statusMenuOpen);
 
     [self.inputStatusView updateWithDeviceName:self.activeInputDisplayName
                                     statusText:[self inputStatusText]
@@ -1037,7 +1134,11 @@ static NSTimeInterval const kInputSignalRecentInterval = 1.5;
                                volumeAvailable:self.activeInputVolumeAvailable
                                          muted:self.activeInputMuted
                                  muteAvailable:self.activeInputMuteAvailable
-                           monitoringAvailable:monitoringAvailable];
+                                    monitoring:self.activeInputMonitoring
+                           monitoringAvailable:self.activeInputMonitoringAvailable
+                          monitoringReapplied:!self.paused
+                                levelAvailable:levelAvailable];
+    self.inputStatusView.monitoringCheckbox.enabled = (self.pendingInputMonitoringWriteCount == 0);
 }
 
 - (NSString *)inputStatusText
